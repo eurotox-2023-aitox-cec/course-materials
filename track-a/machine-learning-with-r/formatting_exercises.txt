@@ -1,0 +1,14 @@
+
+<div class="question">
+##### Exercise `r les` {-}
+
+<EXERCISE - HERE>
+
+</div>
+
+
+<details><summary>Click for the answer</summary>
+
+<ANSWER - HERE>
+
+</details>

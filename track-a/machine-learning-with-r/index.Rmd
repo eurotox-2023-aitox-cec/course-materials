@@ -1,0 +1,157 @@
+---
+title: "CEC01 - A hands-on introduction to applied artificial intelligence in toxicology (CAAIT)"
+subtitle: "Machine Learning With R"
+author: "Marc A.T. Teunis, PhD"
+site: bookdown::bookdown_site
+output: 
+    bookdown::gitbook:
+        css: style.css
+        number_sections: false
+        anchor_sections: false
+        split_by: chapter
+        config:
+            sharing:
+                 github: no
+                 facebook: no
+                 twitter: no
+                 all: no
+            toc:
+                collapse: section
+                scroll_highlight: yes
+                before: <li class="toc-logo"><a href="./"></a> <h4 class=".paddingtitel ">CAAIT</h2></li>
+header-includes:
+  - \usepackage{fontawesome5}
+---
+
+```{r include = FALSE}
+# Define the web addresses for the course
+# run as needed, not included automatically because of stuff (aka git complains)
+githuburl <- "https://github.com/eurotox-2023-aitox-cec/course-materials"
+readerurl <- "https://rstudio-connect.hu.nl/caait/"
+email <- "marc.teunis@hu.nl"
+
+save(
+    list = c("githuburl", "readerurl", "email"), 
+    file = "course_urls.RData")
+
+base_folder <- here::here(
+  "track-a",
+  "machine-learning-with-r"
+)
+```
+
+
+```{r include = FALSE, eval = TRUE}
+# set CSS for objects
+knitr::opts_chunk$set(
+  class.source="Rchunk", 
+  class.output="Rout", 
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE)
+```
+
+# Introduction {-}
+
+Download the source code [`r icons::fontawesome("github")`](https://github.com/ontox-hu/aira)
+
+[These workshop materials were produced for the EUROTOX 2023 Conference, Continuing Education Course (CEC01), held on 10 September 2023 in Ljubljana, Slovenia](https://www.eurotox2023.com/programme/)
+
+```{r, echo=FALSE}
+knitr::include_graphics(here::here(
+  base_folder,
+  "images",
+  "eurotox-banner.png"
+))
+```
+
+## Disclaimer on this work
+We would like to stress that the code and work included in this repo and workshop is experimental. It was not reviewed by a peer assessment process. The code, examples and work should be considered accordingly. The work is meant for illustrative and educational purposes. The authors do not take any responsibly for the use, re-use, application or derivates from the work included in this repository. We appreciate attribution of the original work and adapted work by the authors of this repo.
+
+## Continuing Education Course on Applied Artifical Intelligence (CAAIT)
+Welcome to the Continuing Education Course (CEC01) of the 2023 EUROTOX Conference, Ljubljana, Slovenia. This course entitled 'Applied Artificial Intelligence for Toxicology' is meant as a primer. It consists of two seperate tracks: One focused on more starting researchers, and uses R as the main programming language. And one focused on more advanced researchers. The advanced track is more focused on the use of the Python programming language. This part of the course is the 'Machine Learning with R part' and these pages are the associated materials.
+
+## Programme of this workshop
+ 1. An introduction to R and the tidyverse
+ 1. An introduction to Tidymodels in R (adapted from the Tidymodels documentation)
+ 1. An introduction to Read Accross, based on Compound similarity
+ 1. An introduction to Machine Learning approaches for classification of chemicals
+
+If you are already acquainted with R and a practiced user of the `{tidyverse}` suit of R packages, you can skip activity 1. 
+If you are already familiar with the `{tidymodels}` workflow, you might want to skip or only glimpse over part 2 or take part in the advanced track.
+
+Please note: this is a crash course. We scheduled this course to allow you to throw yourself into R and be able to see yourself making progress very quickly. 
+We wish you good luck and we hope you will have a lot of fun with R!
+
+## Course material
+
+The course material consists of the following:
+
+- Instruction pages (menu to the left). 
+- Exercises.
+
+To navigate through the different materials, you can use the menu on the left. Part 1 of this workshop is based on the online book [R for Data Science](https://r4ds.had.co.nz/index.html). Part 2 is based on the [Tidymodels documentation](https://www.tidymodels.org/). Part 3 was adapted from [TAME](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling). Part 4 was created from scratch, but information and code examples were derived from [tensorflow for R documentation](https://tensorflow.rstudio.com/tutorials/quickstart/beginner)
+
+## R and RStudio
+
+During the course, we will use R the Integrated Development Environment  **RStudio**, which you can download and install (**in this order**) for your system using the links below:
+
+ 1. Download R [here](https://cran.r-project.org/)
+ 2. Download RStudio [here](https://posit.co/download/rstudio-desktop/)
+
+Note that R is Open Source and is licensed under a permissive licence for reuse, and redistribution. RStudio is Open Source, but developed by the company [Posit](https://posit.co/), that also offers commercial versions of this and other Data Science software. The company has a very open science oriented culture and has provided very valuable contributions to the R Open Source Community. 
+
+## Resources and Bookdown
+This website has been created using the `{bookdown}` R package
+```{r}
+citation(package = "bookdown")
+```
+I you want to learn more on bookdown, see [this link](https://bookdown.org/)
+
+## Learning objectives
+
+After this course, you will be able to 
+
+ - Learn the basics of the R syntax
+ - Learn to develop a Tidymodels workflow and run it on data to build models
+ - Build a classical Machine Learning model and evaluate its performance
+ - Run model-tuning to find optimal hyperparameters 
+ - Use R to perform a structure-based Generalised Read Across
+
+## Attribution
+
+This work is distributed under a CC BY-NC 4.0 licence. Please cite this work as:
+
+Teunis, M.A.T.; De Haan, A.; Corradi, M. (2022). "A hands-on introduction to applied artificial intelligence in toxicology". [Github repo](https://github.com/eurotox-2023-aitox-cec/course-materials) 
+
+This reference can be viewed in R, when you have build the caait package or installed it from Github, by running:
+```{r}
+citation(package = "caait")
+```
+
+and include the original TAME source as:
+
+Roell K, Koval LE, Boyles R, Patlewicz G, Ring C, Rider CV, Ward-Caviness C, Reif DM, Jaspers I, Fry RC, Rager JE. Development of the InTelligence And Machine LEarning (TAME) Toolkit for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research. Front Toxicol. 2022 Jun 22;4:893924. doi: 10.3389/ftox.2022.893924. PMID: 35812168; PMCID: PMC9257219.
+https://doi.org/10.3389/ftox.2022.893924
+
+Some materials were adapted from: [TAME](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling), and was reproduced and adapted with permission of the authors. See for the publications and [the complete Toolbox:](https://github.com/UNCSRP/Data-Analysis-Training-Modules). This toolbox is a good place to start for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research. 
+
+Please also provide attribution to R itself
+```{r}
+citation()
+```
+
+The `{tidyvese}`
+```{r}
+citation(package = "tidyverse")
+```
+
+`{tidymodels}`
+```{r}
+citation(package = "tidymodels")
+```
+
+And `{rcdk}`
+```{r}
+citation(package = "rcdk")
+```

@@ -1,0 +1,30 @@
+---
+title: "Lesson8_Exercise_6"
+author: "Your Name"
+date: ' `r Sys.Date() ` '
+output: html_document
+---
+
+``` {r setup, include=FALSE}
+library(tidyverse)
+library(here)
+```
+
+```{r import, include=FALSE}
+# Read in the data
+c10_gene_expression <- read_tsv(here("data/lesson8/c10_gene_expression.txt"))
+
+# Make data tidy
+gene_expr_tidy <- c10_gene_expression %>% 
+  gather(`0h`, `3h`, `12h`, `24h`, `48h`, key = time, value = expression) %>%
+  mutate(time = as.factor(time))
+
+# Reorder the levels of the time variable
+levels(gene_expr_tidy$time) <- c("0h", "3h", "12h", "24h", "48h")
+```
+
+```{r figure_genes}
+gene_expr_tidy %>% filter(gene == "Slfn4" | gene == "Cd14") %>%
+  ggplot(aes(x = time, y = expression, colour = gene)) + 
+  geom_point() 
+```

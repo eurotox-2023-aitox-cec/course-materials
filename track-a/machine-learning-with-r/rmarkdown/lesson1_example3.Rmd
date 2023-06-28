@@ -1,0 +1,6 @@
+```{r setup, option1 = FALSE, option2 = FALSE} 
+library(ggplot2)
+library(dplyr)
+smaller <- diamonds %>%
+  filter(carat <= 2.5)
+```                               

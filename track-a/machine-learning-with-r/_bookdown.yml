@@ -1,0 +1,6 @@
+book_filename: "CAAIT_EUROTOX_CEC01"
+language:
+  ui:
+    chapter_name: "Part "
+delete_merged_file: true
+new_session: yes

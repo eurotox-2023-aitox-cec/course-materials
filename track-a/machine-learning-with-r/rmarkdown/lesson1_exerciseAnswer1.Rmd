@@ -1,0 +1,21 @@
+---
+title: "gapminder_table"
+author: "Your name"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dslabs)
+```
+
+```{r table, warning=FALSE, echo=FALSE}
+knitr::kable(
+  gapminder %>% select(country, year, infant_mortality) %>%
+    group_by(year) %>%
+    filter(infant_mortality == max(infant_mortality, na.rm = TRUE)),
+  caption = 
+    "Table1: countries with highest infant mortality rate from 1960-2016."
+)
+```

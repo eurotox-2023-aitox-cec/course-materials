@@ -1,0 +1,5 @@
+```{r}
+library(tidyverse)
+object1 <- read_csv("data/lesson3/heights.csv")
+head(object1)
+```

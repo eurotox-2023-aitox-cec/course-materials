@@ -1,0 +1,6 @@
+```{r setup}
+knitr::opts_chunk$set(option1 = 'hide',
+option2 = FALSE,
+option3 = FALSE
+)
+```

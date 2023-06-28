@@ -1,0 +1,30 @@
+---
+title: "gapminder_table"
+author: "Your name"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(dslabs)
+```
+
+source of data: The __gapminder__ dataset from the _dslabs_ package.
+
+The infant mortaliy has drop from 
+`r year_1960 <- gapminder %>% filter (year == 1960); max (year_1960$infant_mortality, na.rm = TRUE)` 
+in 1960 to 
+`r year_2015 <-gapminder %>% filter (year == 2015); max (year_2015$infant_mortality, na.rm = TRUE)` 
+in 2015.
+
+
+```{r table, warning=FALSE, echo=FALSE}
+knitr::kable(
+  gapminder %>% select(country, year, infant_mortality) %>%
+    group_by(year) %>%
+    filter(infant_mortality == max(infant_mortality, na.rm = TRUE)),
+  caption = 
+    "Table1: countries with highest infant mortality rate from 1960-2016."
+)
+```

@@ -1,0 +1,1683 @@
+# Part 1 -- Introduction to R and RStudio
+
+```{r include = FALSE, eval = TRUE}
+# set CSS for objects
+knitr::opts_chunk$set(
+  class.source="Rchunk", 
+  class.output="Rout", 
+  warning = FALSE,
+  error = FALSE,
+  message = FALSE)
+```
+
+```{r include=FALSE}
+load("course_urls.RData")
+les <- 1
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(drc)
+```
+
+![](images/01_1_rstudiologo.png)
+
+## Contents day 1
+
+ - Intro to R and RStudio
+ - </mark>Getting the materials from Github XXX</mark>
+ - R-syntax, objects, data types and classes
+ - RMarkdown
+
+
+**Make sure you code along with the examples.** Try to replicate what the reader is doing!
+
+## Starting to work within a project
+
+ - **In the preparation for this course, you made a project. Open this project.**
+
+```{r echo=FALSE, message=FALSE, out.width = "60%"}
+knitr::include_graphics("images/01_10_Open_Project_1.jpg")
+```
+
+<mark>Do you have _some_ coding experience? You will probably know vectors and basic console use then. Skip to [the section on more complicated data structures (click)](#secondstart)</mark>
+
+### Running code in Rstudio
+
+To execute R functions / code there are two options:
+
+ * Directly in the R console  (the code is not saved)
+ * Write a script. (the code can be saved)
+
+The preferred method is to enter the code in a script. Writing and executing R code by using a script has several  advantages: 
+
+1 The code can be saved and therefore is reproducible. 
+2 The code can be shared between researchers
+3 The code can be made clear by adding comments using the # sign
+4 The code can be re-used for other purposes
+
+In contrast to R script, your code will be lost if you directly enter and execute the code in the R console. 
+
+**To create an R script: click on the "green" plus sign and select R script (see Figure \@ref(fig:openscript))**
+
+```{r openscript, echo=FALSE, message=FALSE, out.width = "60%",fig.cap = "creating a new R script in Rstudio"}
+knitr::include_graphics("images/01_13_Rstudio_1.jpg")
+```
+
+A new script has opened in the upper left part of the screen.
+
+**Try typing `2+2` in your new script**
+
+To execute this command: **Put the cursor on the line of code of interest and press Ctrl + enter**
+
+alternatively:
+
+ - Make a selection of lines of code and press Ctrl + enter.
+ - To source the entire script press ctrl + shift + s  
+ - To run the entire script, click the green arrow with "run" next to it on the top right corner of your script.
+
+
+The **OUTPUT** of the line of code will be visible in the R Console or if making a graph in the Plots panel in the lower right window (see Figure \@ref(fig:examplescript))**
+
+```{r examplescript, echo=FALSE, message=FALSE, out.width = "90%",fig.cap = "Example of an R script"}
+knitr::include_graphics("images/01_14_Rstudio_2.jpg")
+```
+
+**Read the code + comments in figure  \@ref(fig:examplescript) carefully to understand the principle of an R script. Two object were created and saved in the Environment panel in the top right.
+
+Importantly, within an R script any text starting with a # sign will be treated as text only. This is very useful to write comments on why you're using a particular code. The actual lines of code are:
+
+```{r  results = 'hide'}
+2*4
+3^0.5                          ## ^ sign means to the power to
+division1 <- 100 / 4           ## create an object named  division1
+division2 <- division1  /  5   ## create an object named  division2 based on object division1
+(division1 - division2) / division1 ## you can use brackets
+
+```
+
+To save an R script simply press Ctrl+S or click on file and click on the **save** or **save as** options. The code will be saved in your RProject folder 
+
+### Variables
+
+**Copy and paste the lines in the grey block above into a new script and run the script (select the lines and press ctrl+enter OR click on "Run" on the top right above your script).**
+
+We have made two variables in the 5 lines of code (or objects, anything in R is an object. On the internet, you will see "variable" and "object" used interchangeably when talking about R:. What are known as objects in R are known as variables in many other programming languages). You can find all objects created in a session in the upper right window, within the "environment" tab. **(find the environment tab)** If you ran the script correctly, division1 and division2 should be visible there (see also figure  \@ref(fig:examplescript) above).
+
+Objects are created with the assignment operator 
+`<-`
+It assigns the stuff on the right to an object on the left. So, after running `division1 <- 100 / 4` , the value of division1 is 25. We will dive into this in lesson 2. 
+
+**Type division1 into the console window to see its contents.**
+
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Write an R **script** (so not in the console) that calculates the 95% confidence interval from a sample  with 60 datapoints (n) with a given sample mean and sample standarddeviation. Follow the steps below.
+
+The equation for a 95% confidence interval is:
+
+$xgem \pm 1,96 * \frac{s}{\sqrt{n}}$
+
+with: **$xgem$** : sample mean, **$s$**: sample standard deviation, **$n$** : amount of measurements
+
+Do the following:
+
+ - open a new R script
+ - first make 3 objects, on 3 separate lines:
+   - `xgem` contains the number 50
+   - `s` contains the number 4
+   - `n` contains the number 60
+ - on the fourth line, make an object that contains the square root of n (remember that ${\sqrt{n} = n^{0.5}}$)
+ - on the fifth and sixth line, write the equations for the lower and upper boundary of the 95% confidence interval. Use the objects you made. Don't forget the brackets () !
+
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r}
+xgem <- 50
+s <- 4
+n <- 60
+sqrootn <- n^0.5
+xgem - (1.96*(s/sqrootn)) # lower
+xgem + (1.96*(s/sqrootn)) # upper
+```
+</details>
+
+### Functions
+
+<div class="question">
+##### Exercise `r les` {-} 
+**Make a new variable called length_myname, which contains a number representing the length of your first name. For example, type in the script: `length_myname <- 7`**
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r, eval=F}
+# for example if your name is "Bas" :
+length_myname <- 3
+```
+</details>
+
+We can actually ask R: to calculate the length if we want.
+
+**Type in the script (replace my name with yours) and run the lines (select them and press Ctrl + enter):**
+
+```{r  results = 'hide'}
+myname <- "alyanne"
+nchar(myname)
+
+```
+
+The number of characters in your name should appear in the console.
+
+We have just used a **function**. Functions allow you to automate common tasks, such as count the characters in a word, or calculate the mean of a series of numbers. Functions generally want some input (such as the word or the numbers), which is placed between round brackets: 
+`function_name(input)`
+
+For instance, there is a function to calculate the square root of something, called `sqrt()`:
+
+```{r  }
+sqrt(25)
+```
+
+### Packages and libraries
+
+R has many build in functions, but you add more by writing them yourself (we won't cover that in this course) or by installing *packages* with functions other people have written. The R: community is very active, and also very open-source. There are a lot (!) of packages available online for free.
+ In this course we have already preinstalled most packages you need.
+
+A package needs to be loaded in R though, by the function `library()`. 
+
+<div class="tip">
+A package only needs to be installed once but needs to be loaded every time you have closed Rstudio.
+
+Start all our scripts with loading the packages you are going to use.
+</div>
+
+A package that we will extensively use during this course is named "tidyverse". 
+
+**So start your scripts within this course with:**
+```{r eval = FALSE}
+library(tidyverse)
+```
+
+### The help function
+
+Each function in R operates with a set of arguments. To check how a function in R operates, type a question mark in the console followed by the name of the function. For example to generate a sequence of numbers we use the function seq(). **To see how it works type:**
+
+```{r eval=FALSE}
+?seq()
+```
+
+<!-- The OUTPUT of the help function will be displayed at the Help panel in the lower right corner of the screen. Often the text is a generic and technical description of the function and its arguments. It can be very hard to read and understand. (see Figure  \@ref(fig:seqhelp)). -->
+
+<!-- ```{r seqhelp, echo=FALSE, message=FALSE, out.width = "60%",fig.cap = "Output of ?seq() in Rstudio"} -->
+<!-- knitr::include_graphics("images/01_16_seq_help.JPG") -->
+<!-- ``` -->
+
+<!-- The Arguments section describes the default values of the arguments. If the value of an argument =NULL, the argument is not used by default unless you invoke the argument by providing a value -->
+
+<!-- We note that the seq() function minimally takes three arguments: -->
+
+<!-- * The start of the sequence: from= -->
+
+<!-- * The end of the sequence: to= -->
+
+<!-- * The stepsize: by=  -->
+
+<!-- The most useful part of the Help panel is to Scroll down to the Examples section (see Figure \@ref(fig:seqhelp2)).  -->
+
+<!-- ```{r seqhelp2, echo=FALSE, message=FALSE, out.width = "60%",fig.cap = "Examples of how to use the seq() function "} -->
+<!-- knitr::include_graphics("images/01_17_seq_help2.JPG") -->
+<!-- ``` -->
+
+<!-- Alternatively in google (or your favorite search engine), type,  "r seq function example" and select a page with examples. It takes a bit of practice to use the internet to search for good examples but it will certainly pay off in the long run. -->
+
+<!-- ### DIY -->
+<!-- As a reminder: -->
+
+<!-- We expect you to try things yourself during this course. When reading the lessons, try all the examples in R. So open Rstudio on the server, copy-paste the examples in a script and run them. *Play around with the code.* You will not learn R: by watching someone else write it, or by reading about it. This is a skill that you will need to practice.  -->
+
+<!-- So in the following example, first copy-paste the example (hoover and click in right corner) to your script and run the lines of code (select them and press ctrl-enter). R will print the characters in alphabetical order in the console window. What would you need to type to get the reverse order? type ?sort in the console or Google it and try it! -->
+
+<!-- ###### Example -->
+<!-- ```{r eval=F} -->
+<!-- sesamstraat <- c("ernie", "bert", "elmo", "pino", "grover", "kermit", "ms piggy", "koekiemonster") -->
+<!-- sort(sesamstraat) -->
+<!-- ```  -->
+
+<!-- Often, we will show you what the output should look like in lighter gray. You can also recognise code output by the ## in front of the lines: -->
+
+
+<!-- ###### Example -->
+<!-- ```{r} -->
+<!-- sesamstraat <- c("ernie", "bert", "elmo", "pino", "grover", "kermit", "ms piggy", "koekiemonster") -->
+<!-- sort(sesamstraat) -->
+<!-- ``` -->
+
+<!-- If your output looks different, such as: -->
+<!-- `Error in sort(sesamstrat) : object 'sesamstrat' not found`  -->
+
+<!-- you know something is going wrong. -->
+
+<!-- The following code will give you an error. Do you see why? -->
+
+<!-- ```{r, eval=F} -->
+<!-- my_variable <- 10 -->
+<!-- my_varıable -->
+<!-- #> Error in eval(expr, envir, enclos): object 'my_varıable' not found -->
+<!-- ``` -->
+
+<!-- This may seem a bit annoying, now that we are all used to Googles machine learning algorithms fixing things like this for us. But R doesn't do that. In fact, it's the other way around:  you can build those machine learning algorithms with R. So we will have to keep an eye on the details ourselves! -->
+
+<!-- **can you fix the code above?** -->
+
+## Data types and structures in R
+
+Now that you have met Rstudio, we can begin working with data!
+
+<!-- ### Creating objects and assigning values -->
+
+<!-- **Data types in R** -->
+
+<!-- Depending on the experiment and type of measurement, a scientist will encounter different types of data. The most important **data types** in R are: -->
+
+<!-- - character (text string of any length);   -->
+<!-- - double (numeric: real or decimal);   -->
+<!-- - integer (whole number);                           -->
+<!-- - logical (TRUE or FALSE);                             -->
+<!-- - and complex (imaginary numbers).  -->
+
+
+**Data structures in R**
+
+Data needs to be stored and therefore must be organized in (complex) data structures. The most important **data structures** in R are:
+
+- vector; collection of values of the same data type.
+- factors; a vector with **categorical** data, can contain only predefined values. 
+- list; elements in lists can be of any type, including lists. 
+- dataframes & tibbles : sort of like a table in excel. Tt has rows and columns (variables).
+
+
+<div class="tip">
+objects are created with the assignment operator: **<-**.
+
+```{r, eval=F}
+name_of_object <- what_you_want_to_store_in_it
+```
+
+</div>
+
+**Object names** must start with a **letter** and can only contain letters, numbers, '_' (an underscore) and '.' (a dot). Object names must be **informative** so that you remember what kind of data is stored in the R object. A convention is to use **snake_case** where you separate lowercase words with underscores. For example, a possible object name for a gene expression dataset in stem cells could be 'rnaseq_mouse_24hrs_stemcells'.
+
+<!-- In this lesson we will create some R objects with different data types and structures. -->
+
+<!-- ### Vectors (part 1) -->
+
+<!-- A **vector** is a collection of values of the same data type. You can make them with a function: `c()`. -->
+
+<!-- ###### Example -->
+
+<!-- ```{r} -->
+<!-- # Create a vector with 5 numeric elements -->
+<!-- vector_1 <- c(1, 2, 3, 4, 5)  -->
+<!-- # use typeof() to check the data type of the values in the vector -->
+<!-- typeof(vector_1) -->
+<!-- # use length() to check the number of values in a vector -->
+<!-- length(vector_1) -->
+<!-- ``` -->
+
+<!-- Vectors can contain other data than numbers: -->
+<!-- ```{r} -->
+<!-- # Create a vector with 4 character elements -->
+<!-- vector_2 <- c("one", "two", "three", "four")  -->
+<!-- typeof(vector_2) -->
+<!-- # Display the number of characters of each element of the vector -->
+<!-- nchar(vector_2)  -->
+<!-- ``` -->
+
+<!-- But a vector can contain only one type of data. Vectors = with different data types will be converted to a common data type. This conversion is called **coercion**. Values are converted to the simplest type required to represent all information. The ordering is roughly: logical < integer < numeric < complex < character.  -->
+<!-- ```{r} -->
+<!-- vector_3 <- c(1,2,3,4,"one", "two", "three", "four")  -->
+<!-- vector_3 -->
+<!-- typeof(vector_3) -->
+<!-- ``` -->
+
+<!-- A special type of vectors are sequences. To generate sequences we can use the `:` operator and the function `seq()` (see examples below).  -->
+
+<!-- ###### Example -->
+
+<!-- ```{r} -->
+<!-- # Create a numeric sequence with step size of 1 -->
+<!-- vector_3 <- 2:15   -->
+<!-- vector_3 -->
+
+<!-- # Create a numeric vector from 2 to 20 with step size of 2 -->
+<!-- vector_4 <- seq(2, 20, by = 2)  -->
+<!-- vector_4 -->
+<!-- ``` -->
+
+
+<!-- ### Pasting vectors with text together -->
+
+<!-- To combine vectors we can use the `paste()` function or `paste0()` function. These two functions are very similar; the only difference is that the `paste0()` function does not introduce spaces when pasting together the vector elements (see examples below).  -->
+
+<!-- ###### Example -->
+
+<!-- ```{r} -->
+<!-- # Paste the two vectors together separated by spaces -->
+<!-- vector_5 <- letters[1:10]   -->
+<!-- vector_6 <- paste(vector_4, vector_5) -->
+<!-- vector_6 -->
+
+<!-- # Paste the two vectors together separated by dashes -->
+<!-- vector_6 <- paste(vector_4, vector_5, sep = "-")  -->
+<!-- vector_6 -->
+
+<!-- # Paste the two vectors together without spaces -->
+<!-- vector_6 <- paste0(vector_4, vector_5)  -->
+<!-- vector_6 -->
+<!-- ``` -->
+
+<!-- ### Sorting vectors -->
+
+<!-- You may want to sort the vector alphabetically, numerically or both. Vectors can be sorted using the `sort()` function.  -->
+
+<!-- ###### Example -->
+
+<!-- ```{r} -->
+<!-- sesamstraat <- c("ernie", "bert", "elmo", "pino", "grover",  -->
+<!--                  "kermit", "ms piggy", "koekiemonster") -->
+<!-- sort(sesamstraat) -->
+<!-- ``` -->
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- Write an R code to create three vectors: -->
+
+<!-- - vector1 contains "Hello" -->
+<!-- - vector2 contains ","  -->
+<!-- - vector3 contains "World" -->
+
+<!-- Combine the three vectors with white spaces into a new vector4 to create "Hello , World" -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+<!-- ```{r} -->
+<!-- vector_h <- c("Hello") -->
+<!-- vector_k <- c(",") -->
+<!-- vector_w <- c("World") -->
+<!-- vector_all <- paste(vector_h, vector_k, vector_w, sep=" ") -->
+<!-- vector_all -->
+<!-- ``` -->
+<!-- </details> -->
+
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- <div class="question"> -->
+<!-- Create the following vector: -->
+<!-- ```{r} -->
+<!-- vector_numeric <- c(1:10, "11") -->
+<!-- ``` -->
+<!-- (a) What is the data type of vector_numeric? -->
+<!-- (b) Can you explain the answer of (a)? -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+
+<!-- (a) -->
+<!-- ```{r} -->
+<!-- typeof(vector_numeric) -->
+<!-- ``` -->
+
+<!-- (b)     -->
+<!-- "11" is a character and not a number, as it is between quotes. -->
+<!-- </details> -->
+
+##### Exercise `r les` {-} 
+
+<div class="question">
+
+Now that you know how to assign things to an object ( `<-` ) and use a function (`functionname(input)`), let's try the following: 
+
+Write R code to calculate: 
+
+(a) the sum of even numbers between 30 and 58.
+(b) the square (power of 2) of the numbers 1 till 50.
+Note: the power function in R is written as a^b meaning a to the power of b. For example 2^3 = 2x2x2 = 8.
+(c) the square (power of 2) of the odd number between 50 and 100.
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r}
+sum(seq(30,58,2))
+```
+(b)
+```{r}
+(1:50)^2
+```
+(c)
+```{r}
+odd_numbers <-seq(51, 100, by=2)
+odd_numbers^2
+```
+</details>
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- Write R code to create a vector containing "26:z", "25:y", "24:x", "23:w" and so on untill "1:a" by combining two vectors.  -->
+
+<!-- Make use of the `paste()` and the `sort()` function. To look up the options for the sort() function use `?sort()`. -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+<!-- ```{r} -->
+<!-- vector_numeric <- c(26:1) -->
+<!-- vector_letters <- letters[1:26] -->
+<!-- vector_letters_z_a <- sort(vector_letters, decreasing = TRUE) -->
+<!-- vector_combined <- paste(vector_numeric, vector_letters_z_a, sep = ":") -->
+<!-- ``` -->
+<!-- </details> -->
+
+## Indexing
+
+Quite often, you will want to use a subset of a vector for further analysis. You can select elements from a vector by using an index inside a single square bracket "[]" operator. This index can be numbers (the positions of the elements to be selected), the first element of an vector has index 1 and so on. But it can also be for instance a function or logicals.
+
+###### Example
+```{r}
+long_vector <- c(1:15,5,6,5,6)
+long_vector
+
+# Positional indexing: Display the second to fifth element of long_vector
+long_vector[2:5]
+
+# Take the sum of the second to fifth element of long_vector
+sum(long_vector[2:5])
+
+# Positional indexing: Display element 2, 6 and 8 of the built-in object letters
+letters[c(2,6,8)]  
+
+# function: Display the last element in long_vector
+long_vector[length(long_vector)]
+
+# Logical: Display the elements in long_vector that are equal to 5
+long_vector[long_vector==5]
+```
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- Write R code to select the 3rd item from long_vector.  -->
+
+<!-- And write a line to select the second-last item from long_vector.  -->
+
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+<!-- ```{r} -->
+<!-- long_vector <- c(1:15,5,6,5,6) -->
+<!-- # third element of long_vector -->
+<!-- long_vector[3] -->
+<!-- # second-last of long_vector -->
+<!-- long_vector[length(long_vector)-1] -->
+<!-- ``` -->
+<!-- </details> -->
+
+Most R functions are **vectorized**. That means that the functions can take vectors as input: the function operations are applied to all vector elements.
+
+###### Example
+
+```{r}
+vector_1 <- c(1, 2, 3, 4, 5) 
+vector_1 + 10
+vector_1 * vector_1
+sum(vector_1)
+mean(vector_1)
+```
+
+To select elements of a vector based on a condition we can use indices `[]` and the function `subset()`. 
+###### Example
+
+```{r}
+# Create a vector with the seq() function
+# NB: length.out determines the number of elements
+reeks <- seq(0, 10, length.out = 6) 
+
+# Select the elements larger than 5
+reeks[reeks > 5] 
+
+reeks2 <- seq(100, -100, -10)
+
+# Extract the vector elements smaller or equal to 30
+subset(reeks2, reeks2 <= 30) 
+
+# Extract the vector elements between -30 and 30
+# NB: '&' means 'and'
+subset(reeks2, reeks2 >= -30 & reeks2 <= 30) 
+
+# Extract the vector elements smaller or equal to -50 or 
+# larger or equal to 50
+# NB: '|' means 'or'
+subset(reeks2, reeks2 <= -50 | reeks2 >= 50)
+```
+
+
+To replace elements of a vector we use the square brackets []. 
+
+###### Example
+
+```{r}
+# Create a new vector called sesamstraat_1
+sesamstraat_1 <- c("pino", "elmo", "bert", "ernie") 
+sesamstraat_1
+
+# Replace the first element "pino" with "gonzo"
+sesamstraat_1[1] <- "gonzo"
+sesamstraat_1
+
+# Replace element 3 ("bert") to 4 ("ernie") with "groover" and "kermit"
+sesamstraat_1[3:4] <- c("groover", "kermit")   
+sesamstraat_1
+```
+
+To add elements to a vector, we use the function `append()`. 
+
+```{r}
+# Add the elements "ernie" en "ms piggy" to the end of the vector
+append(sesamstraat_1, c("ernie", "ms piggy"))
+
+# Add the elements ernie" en "ms piggy" after the 3rd element of the vector
+append(sesamstraat_1, c("ernie", "ms piggy"), after = 3) 
+```
+
+To delete elements of a vector, we use the square brackets [] in combination with the minus sign (-).
+
+```{r}
+sequence1 <- 1:10
+
+# Delete the 3rd element of the vector (using minus sign)
+sequence1[-3]
+
+sequence2 <- seq(10, 100, 10)
+
+# Delete elements 6 and 10 of the vector
+sequence2[-c( 6,10 )]  
+```
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Write R code to select the vowels from the R content LETTERS. 
+(type `LETTERS` in the console to see what is in this object.)
+
+Use `subset()` and the bolean operator '|' .
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r}
+subset(LETTERS, LETTERS =="A" | LETTERS =="E" | LETTERS =="I" | LETTERS =="O" | LETTERS =="U")
+```
+</details>
+
+
+## Missing values
+
+Most often you will import data in R containing missing values. Missing values are important to recognize because they interfere with arithmetic calculations. Missing values are generally denoted as NA in R objects.
+
+###### Example
+
+```{r}
+# Create a vector containing 1 missing value (NA)
+vector_with_na <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, NA) 
+
+# The sum and median of the vector will be NA 
+# (because there is an NA in the vector)
+sum(vector_with_na) 
+median(vector_with_na) 
+
+# The summary of the vector will have NA as part of the output
+summary(vector_with_na) 
+```
+
+There are several ways of dealing with [missing data](https://en.wikipedia.org/wiki/Missing_data) and which one is best will depend on why the data is missing. This is beyond the scope of the current course. The most common method is to just ignore the missing values. This can be a reasonable strategy.
+
+There are several solutions to ignore missing values in R objects:
+
+- Create a vector without the missing values.
+- Ignoring the NA values during the calculation.
+
+###### Example
+
+```{r}
+# Create a new vector without NA values
+# NB1: we use the square brackets to select a part of vector_with_na[] 
+# NB2: is.na() searches for NA values 
+# NB3: the exclamation mark ! in front of is.na() means "not" 
+# !is.na() searches for non NA values (of the vector vector_with_na)
+vector_without_na <- vector_with_na[!is.na(vector_with_na)] 
+mean(vector_without_na)
+
+# Use the na.omit() function to remove NA values from a vector
+vector_without_na <- na.omit(vector_with_na)  
+median(vector_without_na)
+
+# Use the na.rm option within the sum() function to ignore the NA values
+sum(vector_with_na, na.rm = TRUE)  
+```
+
+## More complicated data {#secondstart}
+Usually, our datasets are more complicated than just a vector. 
+
+## Lists 
+
+Many datasets in R are stored as lists. A **list** is a collection of vectors and lists of any length and data type. Lists can contain:
+
+- Single values of different types (single values are actually vectors with 1 element).
+- A combination of vectors each with a different data type and length.
+- Other lists (which may contain vectors and other lists).
+- Any combination of the above. 
+
+Lists provide a way of storing hierarchical complex data (like the folder/subfolder structure on your computer with combinations of different file types and the number of files in each folder/subfolder). A list is created with the function `list()`. 
+The structure of a list can be checked by the function `str()`. To check if an object is a list use `is.list()` or `class()`. 
+
+###### Example
+
+```{r}
+# Create a list composed of a numeric, character, vector, and  logical element
+list_1 <- list(1, "bert", c( 1:10 ), TRUE)
+class(list_1)
+is.list(list_1)
+
+# Show for each element of the list the type of data
+str(list_1)
+
+# Add object list_1 as an element to list_2
+list_2 <- list(2, "ernie", c( 11:20 ), FALSE, list_1) 
+str(list_2)
+```
+
+### Selecting list elements
+
+To select element(s) of an R list we use square brackets for indexing: [index]. Element(s) that are subtracted from a list using the square brackets are returned as a separate list. 
+
+###### Example
+
+```{r}
+# Select 2 elements (elements 1 and 2) from list_2
+list_2_element_1_2 <- list_2[c( 1,2 )] 
+str(list_2_element_1_2)
+typeof(list_2_element_1_2)  
+```
+
+To select element(s) of an R list we can also use double square brackets for indexing: [[index]]. Element(s) that are subtracted from a list using double square brackets are not returned as a separate list. In other words the returned element is not part of a list anymore. This way we can easily substract elements of an element from a list (to get deeper in the hierarchical data structure).
+
+###### Example
+
+```{r}
+# Use single square brackets [index]
+list_2_element3 <- list_2[3]                   
+typeof(list_2_element3)
+
+# Use double square brackets [[index]]
+list_2_element3 <-list_2[[ 3 ]]                  
+typeof(list_2_element3)
+list_2[[3]][5]   
+```
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Write R code to create a list containing the following 5 elements:
+     
+- a vector containing the sequence 1 to 360 with stepsize 1;
+- a vector containing the alphabet in capital letters;
+- a vector containing 2pi / divided by each element of the sequence 1 to 360 with stepsize 1;
+- a vector containing the first 20 numbers of the exponential sequence 2n (2, 4, 8, 16 and so on);
+- and a list containing the following 3 elements:
+  * a vector containing "Hello,";
+  * a vector containing "World";
+  * and a vector containing the log10 values of the sequence 1 to 100 with stepsize 1.
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r}
+list_4.1 <-list(1:360,
+                LETTERS,
+                2*pi/1:360,
+                2^(1:20),
+                list("Hello,",
+                     "World",
+                     log10(1:100)
+                     )
+                )
+```
+</details> 
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+(a) Extract the value of 2^10 from the list of the previous exercise using indices.
+(b) Extract the value of log10(99) from the list of the previous exercise using indices.
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r}
+list_4.1[[4]][10]
+```
+(b)
+```{r}
+list_4.1[[5]][[3]][99]
+```
+</details> 
+
+### Headers
+
+It is good practice to name the different elements of a list with headers. The headers are very useful in referring to the different elements in the list by using indexing as shown for the vectors.
+
+###### Example
+
+```{r}
+# Create a list with named elements "a", "b", "c", "d" and "e"
+list_3 <- list(a = 2, b = "ernie", c = c(11:20), 
+               d = FALSE, e = list_1) 
+
+# Extract an element by refering to the name of the element
+list_3[["a"]] 
+
+# Check if elements of a list have names
+names(list_3) 
+
+# Change the name of the 4th element of list_3 to "pino"
+names(list_3)[4] <- "pino" 
+names(list_3)
+```
+
+An alternative way of extracting elements of a "named" list is to directly refer to the name of an element using the $ sign. It works similar as the double square brackets [[index]] but without the quotes.
+
+###### Example
+
+```{r}
+# Use the $ sign to extract a named element from a list
+list_3$a 
+list_3$e[[3]][10]
+```
+
+
+
+## Dataframes
+
+Experimental data is often organized into a **dataframe**: rows represent  all the **observations** of a single unique "entity". Each column represents a variable and the data values of each column are stored as a vector of equal length (in contrast to the list structure which can contain vectors or list of any length). You will have encoutered this 2-dimensional format before when using Excel or SPSS. Separate columns can store different kinds of values such as numeric or characters, but within a column the values are of the same type.  
+
+Below you can see an example of a dataframe:
+
+```{r echo = FALSE}
+df <- data.frame(
+  sample = paste0('human', 1:6),
+  treatment = c(rep('control', 3), rep('50 ng/mg', 3)), 
+  weight = c(80, 82, 78, 76, 83, 81), 
+  blood_pressure = c('80/120', '85/110', '78/115', '90/125', '92/120', '87/119'),
+  cholesterol = c(20, 25, 32, 45, 43, NA)
+)
+```
+
+```{r echo = FALSE}
+knitr::kable(df)
+```
+
+In R, several functions for dataframes are available:
+
+- `data.frame()` is used to create a dataframe.
+- `str()` is used to check the structure of a dataframe.
+- You can check if an R object is a dataframe using `is.data.frame()` or `class()`.
+- `dim()` can be used to check the dimensions of the dataframe.
+- `names()` can be used to check to column names (names of the variables).
+- `View()` can be used to see the contents of a dataframe as a spreadsheet in R studio.
+- You can see the first part of the dataframe using `head()`; similarly, you can see the last part of the dataframe using `tail()`. 
+
+###### Example
+
+```{r}
+df1 <-data.frame(var1 = 1:5, var2 = c("a", "b", "c", "d", "e"), var3 = c(rep("bert", 3) , rep("ernie", 2)))
+df1
+
+# R has some built-in datasets, like mtcars, which are dataframes
+mtcars 
+class(mtcars)
+```
+
+```{r, eval=FALSE}
+# Check the first 6 lines of the dataframe
+head(mtcars)
+```
+
+### Data analysis using dataframes
+
+After the initial inspection of the dataframe, we start with the actual data analysis and ask interesting questions. For example, for the mtcars dataset, we can ask the following questions:
+
+- What is the average of the mpg?
+- What is the min / max value of the hp?
+- What is the correlation between hp and mpg?
+- What is the difference in mpg between cars with different gears (using a boxplot)?
+
+We can also calculate for each variable in the dataset a summary (see example below).
+
+###### Example
+
+```{r}
+# Use the $ sign to select a variable
+mean(mtcars$mpg)
+max(mtcars$hp)
+
+# Load the package tidyverse to use the ggplot() function
+# (NB: we will explain ggplot() in the next lessons)
+library(tidyverse) 
+mtcars %>% ggplot(aes(x = hp, y = mpg)) +   
+           geom_point() +  
+           geom_smooth(se = FALSE)
+summary(mtcars)
+```
+
+
+<!--  ```{r echo = FALSE} -->
+<!--  knitr::kable(df) -->
+<!--  ``` -->
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  {#dataframe_question} -->
+
+<!-- Make the example dataframe (see above; the dataset with the blood values for different humans) in R.  -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+<!-- ```{r} -->
+<!-- df <- data.frame( -->
+<!--   sample = paste0('human', 1:6), -->
+<!--   treatment = c(rep('control', 3), rep('50 ng/mg', 3)),  -->
+<!--   weight = c(80, 82, 78, 76, 83, 81),  -->
+<!--   blood_pressure = c('80/120', '85/110', '78/115', '90/125', '92/120', '87/119'), -->
+<!--   cholesterol = c(20, 25, 32, 45, 43, NA) -->
+<!-- ) -->
+<!-- ``` -->
+<!-- </details> -->
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- (a) What are the data types in each column of the dataframe of the previous exercise? -->
+<!-- (b) Are the data types of each column similar to what you expect? -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+
+<!-- (a): -->
+<!-- ```{r} -->
+<!-- str(df) -->
+<!-- typeof(df) -->
+<!-- ``` -->
+<!-- </details> -->
+
+## Tibbles
+
+Dataframes are part of base R and have some typical behaviors which are not always useful. During this course, we will extensively work with the tidyverse package. To make dataframes compatible with the tidyverse package, we have to change an R base dataframe to a tibble. A **tibble** is also a dataframe but with different behavior. 
+
+There are several useful functions when working with tibbles:
+
+- `tibble()` can be used to create tibbles from scratch. 
+- `as_tibble()` can be used to convert an existing dataframe to a tibble. By default, the function removes rownames, if they were present. Tibbles do not support rownames: all values, including rownames, are stored in vectors of equal length as variables.
+- You can check if an object is a tibble using `is_tibble()` or `class()`.
+
+###### Example
+
+```{r message=FALSE}
+library(tidyverse)
+```
+```{r}
+# Create a new tibble object with three columns
+tibble_1 <- tibble(number = 1:10, letters = letters[1:10], random = runif(10))  
+is_tibble(tibble_1)
+```
+
+```{r eval=FALSE}
+# Show Rstudio spreadsheet of the mtcars dataframe including rows
+View(mtcars) 
+```
+
+```{r message=FALSE}
+# Check the data structure of the object
+class(mtcars)  
+
+# Convert an existing R dataframe to a tibble
+tibble_2 <- as_tibble(mtcars)  
+class(tibble_2)
+
+# Show first rows of the tibble structure
+tibble_2 
+
+# select a specific variable of the tibble with the $ sign
+tibble_2$gear
+                      
+```
+
+It is possible for a tibble to have column names that are not valid R variable names, a.k.a. non-syntactic names. For example, they might not start with a letter, or they might contain unusual characters like a space. *To refer to these variables, you need to surround them with backticks:* `. You will use it later in the course.
+
+###### Example
+
+```{r}
+weird_column_names <- tibble(`0` = 1:10, `@` = seq(102, 120, 2), `&*(` = letters[1:10])
+colnames(weird_column_names)
+weird_column_names$`&*(`
+```
+
+<!-- By using tibbles we can apply functions of the tidyverse packages. These functions will be further explained in lesson 5. For example, we can calculate the average "mpg" based on the number of gears in the cars (see example below). -->
+
+<!-- ###### Example -->
+
+<!-- ```{r} -->
+<!-- tibble_2 %>% group_by(gear) %>% summarize(average = mean(mpg, na.rm = TRUE)) -->
+<!-- ``` -->
+
+<!-- <div class="question"> -->
+<!-- ##### Exercise `r les` {-}  -->
+
+<!-- (a) Make a tibble of the example dataframe in the section 'Dataframes' (see also [this dataframe exercise](#dataframe_question)). -->
+<!-- (b) What are now the data types in each column of the tibble? -->
+<!-- </div> -->
+
+<!-- <details><summary>Click for the answer</summary> -->
+
+<!-- (a) -->
+<!-- ```{r} -->
+<!-- ex7_tbl <- tibble( -->
+<!--   sample = paste0('human', 1:6), -->
+<!--   treatment = c(rep('control', 3), rep('50 ng/mg', 3)),  -->
+<!--   weight = c(80, 82, 78, 76, 83, 81),  -->
+<!--   blood_pressure = c('80/120', '85/110', '78/115', '90/125', '92/120', '87/119'), -->
+<!--   cholesterol = c(20, 25, 32, 45, 43, NA) -->
+<!-- ) -->
+<!-- ``` -->
+<!-- (b) -->
+<!-- ```{r} -->
+<!-- ex7_tbl -->
+<!-- ``` -->
+<!-- </details> -->
+
+## Factors
+
+Experimental research involves "entities" that are measured. What is being measured (the variable) depends on the research question: what do we want to know of the "entity"? Many variables are continuous variables: the value is obtained by measurement and can be any value within a certain range (e.g. blood pressure, weight,concentration of bacterial toxins etc.).  
+
+Variables can also be **categorical**. Categorical variables take on values (**levels**) that are names. The names have a fixed number of possibilities such as gender (male, female), political party, type of car, color. 
+
+When dealing with categorical data, you could use vectors with "character" elements to describe the different levels of categorical data, like you would for example in Excel. However in R, **factors** can be used to describe the different levels of categorical data. To work with factors, we will use the forcats package (which is regrettably not about cats but about categorical data):
+
+```{r message = FALSE}
+# first load the package (and tidyverse too for good measure)
+library(tidyverse)
+library(forcats)
+```
+
+With factors, we can:
+
+- control the sorting behavior of the categorical levels;
+- modify categorical levels;
+- and prevent typos in the categorical levels. 
+
+Let's demonstrate the behavior of factors with an example. A researcher wants to know which month has the highest flu incidence rate in the Netherlands and counts for each month the number of registered people with flu.  
+
+```{r}
+flu_month <- tibble(patient = paste0(c("patient"), 1:16),
+                    month = c("jan", "jam", "mar", "nov", "nov", "dec", "feb", 
+                              "apr", "jun", "sept", "dec", "feb", "aug", "may", 
+                              "jul", "sep"))
+flu_month
+```
+
+There are three problems with this dataset:
+
+1. If we want to summarize the data, the variable "month" is ordered alphabetically. 
+2. One month is misspelled as "jam".
+3. One month is spelled as "sep" or "sept".
+
+Let's summarise the data with the function `count()`.
+
+```{r}
+flu_month %>% count(month)
+```
+
+The `count()` function returns the month in alphabetical order which is not useful. Also, there are two levels for January: "jam" and "jan" each with a value. In addition, there are two levels for September: "sep" and "sept" each with a value.
+
+To prevent these issues, we can create a factor data structure. On forehand, levels of the categorical variable are defined with a character vector. To view the values in the dataset that are not part of the predefined level list, we can use the function `parse_factor()`. This function comes with two arguments:
+
+- a character vector to be analyzed; 
+- and the levels of the categorical value.
+
+```{r}
+# Create a vector containing the level definition
+month_levels <- c("jan", "feb", "mar", "apr", "may" ,"jun", 
+                  "jul", "aug", "sep", "oct", "nov", "dec") 
+parse_factor(flu_month$month, levels = month_levels)
+
+# Correct the misspellings
+flu_month$month[flu_month$month=="jam"] <- c("jan") 
+flu_month$month[flu_month$month=="sept"] <- c("sep") 
+```
+
+We can now convert the character variable "month" to a factor variable:
+
+```{r}
+# Convert the variable 'month' to a factor
+flu_month$month <- factor(flu_month$month, levels = month_levels) 
+flu_month
+```
+
+To view the levels of a "factor" variable use the function `levels()`:
+
+```{r}
+levels(flu_month$month)
+```
+
+Let's summarise the data again with the function `count()`:
+
+```{r}
+flu_month %>% count(month)
+```
+
+The months are now in the right order. Note that October is omitted because no values were recorded for this month. 
+
+<div class="tip">
+Tip: If R is absolutely refusing to cooperate, make sure you defined your variables correctly as categorical (factor), numbers or text.
+</div>
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Use the built-in dataset gss_cat from the forcats package to answer the following questions. gss_cat is a sample of data from the General Social Survey, which is a long-running US survey conducted by the independent research organization NORC at the University of Chicago.
+
+(a) Which variables are factors?
+(b) What are the levels of the "marital" variable?
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r}
+library(forcats)
+gss_cat
+```
+(b)
+```{r}
+levels(gss_cat$marital)
+```
+</details>
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Run this code in R to create a tibble with categorical data:
+
+(Make sure your .rds file is in a folder named "data" in your working directory. If you are working in a project, this will be the project folder containing the .rproj file. If it doesn't work, ask a teacher!)
+
+```{r, eval=F}
+marital_status <- readRDS("data/lesson1_exercise_8.2.rds")
+```
+
+```{r, include=F}
+marital_status <- read_rds("data/lesson2_exercise_8.2.rds")
+```
+
+The levels of this dataset are: "No answer", "Never married", "Separated", "Divorced", "Widowed" and "Married". Use this dataset and the levels to answer the following questions.
+
+(a) Search for data values that are not in the level list.
+(b) Correct the misspellings using fct_collapse() from the forcats package. 
+(c) How many data values are in each of the categorical levels?
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r}
+marital_levels <- c("No answer", "Never married", "Separated", "Divorced", "Widowed", "Married")
+parse_factor(marital_status$marital, levels = marital_levels)
+```
+(b)
+```{r}
+marital_status$marital[1001] <- c("Divorced")
+marital_status$marital[5001] <- c("Married")
+marital_status$marital[10001] <- c("Never married")
+```
+(c)
+```{r}
+marital_status %>% count(marital)
+```
+</details>
+
+<div class="tip">
+Always think about the variables in your dataset. Are they categorical, continuous or discrete? Let's say we test different variables in the people in this class:
+
+ - **continuous variables**: numeric variables that can have any value between any two values. Examples: the hair length (can be anything from 0 to let's say 400 cm, including for instance 15,36791 cm.), body temperature, pH of a magic potion.
+ - **discrete variables**: also numbers, but these numbers can't be anything between certain limits. They have discrete options. Typically, this is count data, but not always. For instance: the number of people wearing blue shirts (can be 3, 5 or 8, but can't be 5,36791 or 2,6), the result of rolling a die.
+ - **categorical variables**: contain a finite number of categories or distinct groups. For instance, eye colour (blue, brown, green, grey, etc), home town (Utrecht, Amsterdam, Zuidlaren, etc), marital status (married, unmarried).
+
+When you are working with a categorical variable, do store it as a factor! R will then recognise it being categorical, and handle it as such when doing calculations or making plots. 
+</div>
+
+
+## using functions: drc
+
+We will use the `drc` package for the following exercises. Packages contain functions and data, and can be installed using the command line (or click tools --> install packages):
+
+Type and run in the console to install and load the drc package:
+
+```{r, eval=F}
+install.packages("drc")
+library(drc)
+```
+
+This package contains functions and data for the analysis of dose-response curves. For instance, it contains a dataset of part of a study to investigate the joint action of phenolic acids on root growth inhibition of perennial ryegrass (*Lolium perenne L*).
+
+Look at the data by typing `ryegrass` in the console.
+
+You will see a dataset with 24 measurements and 2 variables.
+
+rootl is the root length of perennial ryegrass measured in cm.,  conc is the concentration of ferulic acid is in mM. 
+
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+Using a function, calculate the avergae root length of the measured plants.
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r}
+library(drc)
+
+mean(ryegrass$rootl)
+
+```
+</div>
+
+With a few lines of code, we can ask R to fit a 4-parameter log-logistic model to the data, and give us a dose response curve.
+
+We use the function `drm()` (Dose Response Model), which takes in this case 3 inputs:
+
+ - formula : which effect are we interested in?
+ - data: which data to use
+ - fct: which function to fit
+
+```{r}
+model<- drm(formula = rootl~conc, # we are interested in rootlength as a function of (~) concentration
+            data=ryegrass, # input
+            fct=LL.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50"))) 
+            #LL.4 means 4-parameter log-logistic
+
+summary(model)
+
+```
+
+And we can plot our model by using the plot() function. The plot will appear in the lower right of your screen. 
+```{r}
+plot(model, type="all")
+```
+
+You can also calculate the EC10, EC20, EC50 etc with the ED() function. (type `?ED` in the console to see why we set the type of confidence interval to "delta". )
+
+```{r}
+ED(model, c(10,20,50), interval="delta")
+```
+
+Of course, you can compare different models (see `getMeanFunctions()` for a complete list). for instance:
+
+
+```{r}
+toxdata <- ryegrass
+# W2.3: a weibull type 2 function with 4 parameters
+model.W24 <-  drm(rootl~conc, data=toxdata, fct=W2.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50")))
+
+
+# a Log logistic model with 3 parameters
+# (3 parameters means fixing the lower limit at zero. Which makes sense as rootlength can't be negative)
+model.LL3 <-  drm(rootl~conc, data=ryegrass, fct=LL.3(names = c("Slope", "Upper Limit", "ED50")))
+
+plot(model.LL3, broken = TRUE, xlab="Concentration", ylab="Percent Response", type='all',lty=1, lwd=2)
+plot(model.W24, add=TRUE,col="orange",lty=1, lwd=2)
+```
+
+You can calculate the Akaike’s information criterion and the residual variance (smaller = better) with the `mselect()` function, to make an informed decision between different models:
+
+```{r}
+mselect(model.LL3, fctList = list(W2.4()), linreg=TRUE) 
+```
+
+
+## scripts and Rmarkdown
+
+First of all, download some data for the first lessons [here](data/alldatafirstlessons.zip). And some example Rmarkdown files [here](rmarkdown/markdownexamples.zip).
+
+So far, we have run a lot of code in the console. Or perhaps you used a script to save some commands. Usually though, you will be working on a specific dataset, rather than playing around with course material. To save all the steps for a specific analysis, you can save your code in a script, or in a markdown file.
+
+### scripts
+
+Scripts have been introduced before. Quite simply, they are just all R code, but in a tekst file so you can save your code for later (and importantly: for reproducability).
+
+All regular tekst in a .r script will be regarded as R code. Comments can be added by putting a hashtag in front of the tekst. Any plots will be displayed in the window at the lower right of the screen.
+
+
+<div class="question">
+##### Exercise `r les` {-} 
+
+If you haven't already, make a new script with the code for fitting dose response curves we used in the previous examples. Save you script on your computer.
+
+</div>
+
+
+<details><summary>Click for the answer</summary>
+
+- click file --> new file --> R script (or click the empty paper with green + in the upper left corner)
+- copy paste your code from the examples to your script.
+- run the script (upper right corner, press Run) to check if it is still working.
+- save the script to your computer.
+
+```{r, eval=F}
+library(drc)
+library(tidyverse)
+
+# fit a 4-parameter log-logistic model
+model<- drm(formula = rootl~conc, # we are interested in rootlength as a function of (~) concentration
+            data=ryegrass, # input
+            fct=LL.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50")))
+            #LL.4 means 4-parameter log-logistic
+
+# give me the estimates
+summary(model)
+
+# plot the dose response curve
+plot(model, type="all")
+
+# calculate ED10, 20 and 50
+ED(model, c(10,20,50), interval="delta")
+
+# compare 2 different models
+model.W24 <-  drm(rootl~conc, data=toxdata, fct=W2.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50"))) # W2.3: a weibull type 2 function with 4 parameters
+
+model.LL3 <-  drm(rootl~conc, data=ryegrass, fct=LL.3(names = c("Slope", "Upper Limit", "ED50"))) # a Log logistic model with 3 parameters
+
+# plot the comparison
+plot(model.LL4, broken = TRUE, xlab="Concentration", ylab="Percent Response", type='all',lty=1, lwd=2)
+plot(model.W24, add=TRUE,col="orange",lty=1, lwd=2)
+
+# calculate IC
+mselect(model.LL3, fctList = list(W2.4()), linreg=TRUE)
+
+
+```
+
+## Rmarkdown
+
+If you want to present your findings you can either share your code and ask fellow researchers to reproduce your results or alternatively only show the output of your results. Both have their downsides, and Rmarkdown tries to comine the best of both methods. It is a reproducible manner of building documents (such as .pdf, .html and even .docx) which directly includes your code. So when you use code to generate a plot, it is included in the Rmarkdown-file you use to write the paper. It containis both code (method) and output. 
+
+RMarkdown can be used in three ways:
+
+- to communicate only the output and conclusions of your analysis to decision makers (and not the code behind the conclusions);
+- to communicate the output and conclusions, as well as the code behind the conclusions to fellow scientists;
+- as an environment in which to do data science, as a modern day lab notebook where you can capture not only what you did, but also what you were thinking.
+
+Although here we focus on R code, RMarkdown documents can also integrate Python, Bash, SQL and other (programming) languages into one document showing both code and output. RMarkdown is also frequently used to produce (e-)books. And also, this reader.
+
+Let's start with a simple RMarkdown document to examplify the concept of RMarkdown:
+
+Download the course data for the first lessons by clicking here 
+
+To open an existing RMarkdown file, perform the following steps:
+
+(1) Click on *file > Open File*.
+
+```{r echo=FALSE, message=FALSE, out.width = "70%", fig.align = "center"}
+knitr::include_graphics("images/07_2_screenshot.jpg")
+```
+
+(2) Navigate to the folder you downloaded the course data to and select file **lesson1_example1.Rmd** (note: RMarkdown files have the extension .Rmd).
+
+(3) Open RMarkdown file **lesson1_example1.Rmd**.
+
+The contents of the file will be displayed in the upper left panel in RStudio and contains the following lines of code:
+
+```{r echo=FALSE, message=FALSE, fig.align = "center"}
+knitr::include_graphics("images/07_4_screenshot.JPG")
+```
+
+An R markdown file consist of different sections of code each marked with different characters: 
+
+- The first **header** section starts and ends with ---
+- Sections containing code (**chunks**) start and end with ```
+- **Plain text** does not have marking characters
+- Code within plain text starts and ends with `
+
+To render an RMarkdown file (meaning to make an output file) simply click on the knit button located just above the RMarkdown file (see figure above). The output file will be shown in a separate RStudio panel. 
+
+(4) Knit the RMarkdown file and take a close look at the output file.
+
+The output document is saved in the same folder as the original RMarkdown file with the extension '.html'. This is the default output format but can be changed to, for example, a PDF or Word format.
+
+IMPORTANT: by default the output file contains the code itself, messages and the output of the code. The default behavior of what to show in the output file can be changed and will be discussed later in this lesson. But first we will explain the lay-out of the RMarkdown file. 
+
+## YAML header
+
+The first section of the RMarkdown example is the YAML header. The YAML header provides general information of the output document:
+
+- **title**: can be filled in when creating a new RMarkdown file.
+- **author**: can be filled in when creating a new RMarkdown file.
+- **date**: automatically set when creating a new RMarkdown file.
+- **output**: by default RMarkdown creates an output file in HTML format. If you want another output format change output: to another file format such as PDF or Word (although you need additional packages).
+
+If you want to make different RMarkdown output files from an existing RMarkdown, it is advisable to set the date in the YAML header as follows:
+
+```{r eval = FALSE}
+'`r Sys.Date()`'
+```
+
+This R function sets the current date. Note that the function is between a pair of single quotes and backticks (see also later in this lesson).
+
+The YAML header provides many other options to control “whole document” settings. However, this is beyond the scope of this course.
+
+###### Example
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_example1.Rmd"))
+```
+
+## Code chunks
+
+The RMarkdown example above contains two chunks. A chunk is a section in the RMarkdown file containing the actual code. A chunk of code starts and ends with three backtick marks. To define the beginning of the code the three backtick marks are minimally followed with {r}. The r signals that the code is R. Remember that we can also use code of other languages such as bash or python. In that case the chunk header will be {bash} or {python}, respectively.
+
+Within the {r} header, you can optionally provide a name of the header. In the example above, the first header is named "setup" and the second header is named "frequency". Naming chunks has the advantage that your RMarkdown becomes organized so that is will be easy to search for and navigate to a specific chunk. To search for a chunk, click on search button below the RMarkdown file (see figure below).
+
+```{r echo=FALSE, message=FALSE, out.width = "50%", fig.align = "center"}
+knitr::include_graphics("images/07_5_screenshot.jpg")
+```
+
+Another use of named chunks is to save figures. If a chunk creates a figure, the figure can also be saved separately. This option will be discussed in the next section.
+
+## Output control
+
+When rendering an RMarkdown file, by default the R code in a chunk is executed and the output file will contain the code, messages and output of the code. Most often this is not what you want. (NB: plain text is always printed.)
+
+To control what will be shown in the output file we will use chunk options. If you want to apply a similar set of options for all "chunks", you can use knitr::opts$set as shown below. Put this chunk, named 'setup' at the beginning of your RMarkdown file. The chunck options defined here will be generally applied to the whole document:
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_example2.Rmd"))
+```
+
+
+It is also possible to set options for a single chunk. Simply put the options in the header of the chunk you want to modify, as shown below. General chunk options as shown above will be overwritten by the single chunk options.
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_example3.Rmd"))
+```
+
+There are more than [60 options](https://yihui.org/knitr/options/) to add to a chunk header. Some of these options determine what happens with the chunk code:
+
+- **eval** = FALSE: the code is not executed. The chunk code is shown in the output file. This is useful for displaying example code.
+- **include** = FALSE: the code is executed, but the chunk code and all of its output (results, figures, messages and warnings) are not shown in the output file. This is useful for chunks performing data wrangling, for example data filtering or creating new variables, which are later used in graphs or summary tables.
+- **echo** = FALSE: the code is executed, but the chunk code is not in the output file. All output of the chunk is shown in the output file. This is useful for showing the final results (graphs) of your data analysis and not how you achieved your results. Use this when writing reports aimed at people who do not want to see the underlying R code.
+
+Note that the option "include = FALSE" [supresses](https://yihui.org/en/2017/11/knitr-include-false/) all output of a chunk. To specifically control what should not be be in the output file you can make use of the following options:
+
+- **results** = "hide": the code is executed and the chunk code is shown in the output file. The results of R functions are not shown in the output file.
+- **fig.show** = "hide": the code is executed and he chunk code is shown in the output file. Figures of R functions are not shown in the output file.
+- **message** = FALSE: the code is executed and the chunk code is shown in the output file. R messages are not shown in the output file.
+- **warning** = FALSE: the code is executed and the chunk code is shown in the output file. R warnings are not shown in the output file.
+
+Table with different chunk output options. **yes** means present in the output file.
+
+Option |	Run code |	Show code |	Output |	Plots |	Message |	Warning
+:----|:-----|:---|:---|:---|:---|:---
+eval = FALSE |	no |	**yes** |	no |	no |	no |	no
+include = FALSE |	**yes** |	no |	no |	no 	| no |	no
+echo = FALSE | 	**yes** |	no |	**yes** |	**yes** |	**yes** |	**yes**
+results = "hide" |	**yes** |	**yes** |	no |	**yes** |	**yes** |	**yes**
+fig.show = "hide" |	**yes** |	**yes** |	**yes** |	no |	**yes** |	**yes**
+message = FALSE |	**yes** |	**yes** |	**yes** |	**yes** |	no 	| **yes**
+warning = FALSE |	**yes** |	**yes** |	**yes** |	**yes** |	**yes** |	no
+
+<div class="question">
+##### Exercise `r les` {-}
+
+(a) Modify RMarkdown file **lesson1_example1.Rmd** to only show the figure in the output file.
+(b) Modify RMarkdown file **lesson1_example1.Rmd** to only show the chunk code in the output file (not the output of the chunks).
+
+Save the Rmd files as **lesson1_exercise_1a.Rmd** and **lesson1_exercise_1b.Rmd** respectively .
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r eval = FALSE}
+{r setup, echo = FALSE, message = FALSE}
+{r frequency, echo = FALSE}
+```
+(b)
+```{r eval = FALSE}
+{r setup, message = FALSE}
+{r frequency, fig.show = "hide"}
+```
+</details>
+
+-------------
+
+There are also several options for dealing with figure output and layout:
+
+- **fig.width** = n and **fig.height** = n (where n is a number representing inches): to change the width and height of the figures in your output file.
+- **fig.cap** = "name of the caption": to add a caption to the figure plot (a caption is a numbered label, such as "Figure 1").
+- **fig.path** = "figures/": to create separate files of figures created by a chunk. First create a figures folder in the rmarkdown directory. The file containing the figure will be stored in this folder with a similar name as the chunk name.
+
+<div class="question">
+##### Exercise `r les` {-}
+
+(a) Modify RMarkdown file lesson1_example1.Rmd to:
+
+- Show only the figure in the output file.
+- Modify the figure width to 6 and the height half of the width.
+- The figure in the output file has an caption.
+
+(b)
+
+Modify RMarkdown file lesson1_example1.Rmd to:
+
+- Show only the plain text.
+- Save the figure in a separate file in a folder /figures.
+
+Save the Rmd files as **lesson1_exercise_2a.Rmd** and **lesson1_exercise_2b.Rmd** respectively **
+</div>
+
+<details><summary>Click for the answer</summary>
+
+(a)
+```{r eval = FALSE}
+{r setup, echo = FALSE, message = FALSE}
+{r frequency, echo = FALSE, fig.height = 3, fig.width = 6, fig.cap = "Figure1: Distribution of carat values"}
+```
+(b)
+```{r eval = FALSE}
+{r setup, include=FALSE}
+{r frequency, include=FALSE, fig.path ="figures/"}
+```
+</details>
+
+------------
+
+In the RMarkdown output file, data frames (tibbles) are printed in the same way as you would see them in the RStudio console. To change this behavior, you can use the knitr::kable() function as demonstrated in RMarkdown file **lesson1_tables.Rmd**.
+
+Open and knit this RMarkdown file. Study the code and the RMarkdown output format.
+
+There is an example in the .Rmd file on how to make APA format tables.
+
+## Plain text formatting
+
+An RMarkdown document contains a YAML header and chunks of code to be executed. In addition, plain text can be added to describe your analysis, results or whatever you think is useful to understand your RMarkdown document. Plain text will always be shown in the output file (unless you put it in a chunk as comments, starting with a # sign).
+
+The output of plain text can easily be formatted by a set of simple formatting rules:
+
+- to print plain text in italics surround the text with 1 underscore: \_text\_ will become _text_.
+- to print plain text in bold surround the text with 2 underscores: \_\_text\_\_ will become __text__.
+- to print superscript use \^2\^: 10\^2\^ will become 10^2^.
+- to print subscript use \~2\~:  H\~2\~O will become H~2~O.
+
+To print headers use the pound sign in front of the header text:
+
+\# 1st Level Header
+\#\# 2nd Level Header
+\#\#\# 3rd Level Header
+
+A quick reference guide can be found in RStudio: *Help > Markdown Quick Reference*. A complete reference guide can be found in RStudio: *Help > Cheatsheets > R markdown Reference Guide*.
+
+Within plain text, R code can be executed. To incorporate R code within plain text, use r code surrounded by backticks `. The code will be evaluated and printed in the output document. Note that the original code will not be shown in the output document!
+
+<div class="question">
+##### Exercise `r les` {-}
+
+Modify RMarkdown document **lesson1_exercise_3.Rmd** to include:
+
+- Plain text describing the source of the dataset. Write the package name in italics and the name of the dataset in bold.
+- the sentence: "the infant mortality has dropped from ' [R code showing the max infant_mortality in 1960] ' in 1960 to ' [R code showing max infant_mortality in 2015] ' in 2015." NB: the parts between square brackets is R code you have to include; this R code will be evaluated within the plain text section after rendering the output file.
+
+Save the RMarkdown file as **lesson1_exercise_4.Rmd**.
+</div>
+
+<details><summary>Click for the answer</summary>
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_exerciseAnswer2.Rmd"))
+```
+
+</details>
+
+## Here package
+
+To exemplify the idea of RMarkdown we have used a built-in dataset to show the different display options of code and output. However, most often you will refer to datasets or scripts in your RMarkdown file that are stored on a server or on your computer. This will cause a problem because RMarkdown and knit will not search for files in the project folder but instead in the folder were the RMarkdown file is stored. To solve this problem we will make use of the "here" package.
+
+In the beginning of this course we have created an Rproject and before each session you should open the Rproject you are working on. Within the project folder (in this case **daur**) you organize your data files, scripts files, RMarkdown files and output files in different folders (see figure below). By using an Rproject you are guaranteed that when executing R code / scripts, all of your (data) files are read in properly. This is because by definition, within your Rproject environment, R will set the working directory to the project folder and start looking for folders and files relative from the Rproject folder (the folder that contains the .Rproj file, in this case the daur folder).
+
+
+```{r echo=FALSE, message=FALSE, out.width = "50%", fig.align = "center", fig.cap = "Data organisation on a server. Always create an Rproject to do data analysis."}
+knitr::include_graphics("images/07_6_screenshot.jpg")
+```
+
+When using RMarkdown, the default behavior is to only look in the folder where the RMarkdown file is stored. This will cause errors when knitting an RMarkdown file because RMarkdown can not find the data files stored in the data folder outside the RMarkdown folder.
+
+For example, you source (execute) a script from the **scripts** folder and this script imports a dataset present in the **data** folder. Because you work within your Rproject, R will start looking for folders and files relative to the project folder (in this case the daur folder). Contrary, if you are knitting an RMarkdown file and this RMarkdown imports a dataset present in the **data** folder, RMarkdown will only start looking in the RMarkdown folder and will never find the data folder. This will cause an error and the knitting of the RMarkdown document stops.
+
+###### Example
+
+Open via Rstudio the RMarkdown file **lesson1_here_example1.Rmd** . The file contains the following RMarkdown code:
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_example5.Rmd"))
+```
+
+Click on the knit button to render the output file. You will get the following error message:
+
+```{r echo=FALSE, message=FALSE, out.width = "80%"}
+knitr::include_graphics("images/07_7_screenshot.JPG")
+```
+
+You notice that the current working directory is set to the **rmarkdown** folder. RMarkdown start looking for folder "heights.csv" in some "hard coded" folder (i.e. I typed out the whole (example) location) but can not find it. It throws an error and exits the knitting process.
+
+To change the default behaviour of RMarkdown, we will use the **here** package. The **here** package recreates a file path to the Rproject folder. 
+
+Install the package by typing `install.packages("here")` in the console.
+
+###### Example
+
+In Rstudio, open the RMarkdown file **lesson1_here_example2.Rmd**. The markdown file contains the following RMarkdown code:
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_example6.Rmd"))
+```
+
+The output file will be displayed in a separate RStudio panel. In addition, an output file named **lesson1_here_example2.html** is created and saved in the **rmarkdown** folder.
+
+<div class="question">
+##### Exercise `r les` {-}
+
+Use dataset **c10_gene_expression.txt** from the course data. This file contains gene expression values after 0h, 3h, 12, 24h and 48h (hours) of induction of the c10 celline. After induction, the cell undergoes a massive change in gene expression.
+
+Show the genes that become highest upregulated after 48 hours (48h) of induction compared to the start condition (= 0h). Only list genes which have a difference of 8 or more between 48h and 0h.
+
+Write an RMarkdown document. The RMarkdown document should contain:
+
+- YAML header.
+- Plain text describing the source of the dataset.
+- Chunks containing R code to create a table of the highest expressed genes after 48h.
+
+The RMarkdown output file only contains the table. Save the RMarkdown file as **lesson1_exercise_5.Rmd**.
+</div>
+
+<details><summary>Click for the answer</summary>
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_exerciseAnswer3.Rmd"))
+```
+
+</details>
+
+## Creating a new RMarkdown file
+
+To create your own Rmarkdown documents in RStudio, perform the following steps:
+
+1. click *File > New File > R Markdown*.
+
+```{r echo=FALSE, message=FALSE, out.width = "60%", fig.align = "center"}
+knitr::include_graphics("images/07_8_screenshot.jpg")
+```
+
+2. Fill out the Title and Author which will be displayed in the YAML header (this step is optional).
+
+```{r echo=FALSE, message=FALSE, out.width = "60%", fig.align = "center"}
+knitr::include_graphics("images/07_9_screenshot.JPG")
+```
+
+3. Click on OK. A default template will be opened in RStudio showing the YAML header and instruction on how to use RMarkdown:
+
+```{r echo=FALSE, message=FALSE}
+knitr::include_graphics("images/07_10_screenshot.JPG")
+```
+
+4. Remove the instructions but leave the YAML header.
+5. Start writing your RMarkdown document.
+6. Save your document in a folder called rmarkdown in your project folder.
+7. To render your RMarkdown document, click on the knit button.
+
+<div class="question">
+##### Exercise `r les` {-}
+
+Create a new RMarkdown document. In this document, create R chuncks to perform the following tasks:
+
+- Read in the dataset **c10_gene_expression.txt** from the course data.
+- Convert this dataset to a tidy dataset. Set the time variable as a factor and set the levels of this factor in a logical order.
+- Create a scatter plot (ggplot) that shows the results for the genes "Slfn4" and "Cd14".
+
+The RMarkdown output file contains the code to make the scatter plot and the plot itself. All other R code used for data transformation and wrangling is not shown in the output file. Save the RMarkdown file as **lesson1_exercise_genexp.Rmd**.
+</div>
+
+<details><summary>Click for the answer</summary>
+
+```{r echo = FALSE, comment = ""}
+cat(htmltools::includeText("rmarkdown/lesson1_exerciseAnswer4.Rmd"))
+```
+
+</details>
+
+<div class="dagopdracht">
+Practice in the following week on building Rmarkdown reports with data chunks analysing a certain research question.
+
+You can use the build-in datasets in R (type `data()` to see them)
+</div>
+
+
+
+
