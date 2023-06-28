@@ -483,18 +483,21 @@ mutagen_folds
 ```
 
 ### Running the tuning 
-Initially we will use a grid tuning where we are just setting the dimensions of the grid (`grid = 20`). The `workflow` and cross validation `folds` are the inout for this grid tuning.
+Initially we will use a grid tuning where we are just setting the dimensions of the grid (`grid = 20`). The `workflow` and cross validation `folds` are the input for this grid tuning. This step takes a long time. I ran this on my Macbook, M1 with 8 cores and 16 Gb RAM, which took about 
 
 ```{r}
-#registerDoMC(cores = max(1, parallelly::availableCores() - 1))
-doParallel::registerDoParallel()
 
-set.seed(345)
-tune_res <- tune_grid(
+
+  registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+  
+  tictoc::tic()
+  set.seed(345)
+  tune_res <- tune_grid(
   rf_tune_wf,
   resamples = mutagen_folds,
-  grid = 20
-)
+  grid = 4
+  )
+  tictoc::toc()
 
 tune_res
 ```
