@@ -1126,7 +1126,7 @@ marital_status <- readRDS("data/lesson1_exercise_8.2.rds")
 ```
 
 ```{r, include=F}
-marital_status <- read_rds("data/lesson2_exercise_8.2.rds")
+marital_status <- read_rds("data/lesson1_exercise_8.2.rds")
 ```
 
 The levels of this dataset are: "No answer", "Never married", "Separated", "Divorced", "Widowed" and "Married". Use this dataset and the levels to answer the following questions.

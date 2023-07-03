@@ -53,13 +53,12 @@ knitr::opts_chunk$set(
 
 # Introduction {-}
 
-Download the source code [`r icons::fontawesome("github")`](https://github.com/ontox-hu/aira)
+Download the source code [`r icons::fontawesome("github")`](https://github.com/eurotox-2023-aitox-cec/course-materials)
 
 [These workshop materials were produced for the EUROTOX 2023 Conference, Continuing Education Course (CEC01), held on 10 September 2023 in Ljubljana, Slovenia](https://www.eurotox2023.com/programme/)
 
 ```{r, echo=FALSE}
 knitr::include_graphics(here::here(
-  base_folder,
   "images",
   "eurotox-banner.png"
 ))

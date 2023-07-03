@@ -1,19 +1,18 @@
 # Part 2 -- Machine Learning with R
 
 ```{r, base_folder, include=FALSE}
-base_folder <- here::here(
-  "track-a",
-  "machine-learning-with-r"
-)
+#base_folder <- here::here(
+#  "track-a",
+#  "machine-learning-with-r"
+#)
+
 load(here::here(
-  base_folder,
   "course_urls.RData"))
 les <- 2
 ```
 
 ```{r, tidymodels_hex, echo=FALSE, message=FALSE, out.width = "50%", fig.align = "center"}
 knitr::include_graphics(here::here(
-  base_folder,
   "images",
   "tidymodels.svg"))
 ```
@@ -66,10 +65,7 @@ A dataset from [Github](https://github.com/simonpcouch/mutagen).
 ```{r, load_mutagen_data}
 load(
  here::here(
-   base_folder,
-   "data",
-   "mutagen",
-   "data",
+   "data-raw",
    "mutagen_tbl.Rda"
  )
 )
@@ -108,7 +104,6 @@ The code below downloads the data to a the `./data-raw` folder and unzips the fi
 
 ```{r, download_qsar_data}
 path <- here::here(
-  base_folder,
   "data-raw",
   "qsar_oral_toxicity.zip"
 )
@@ -116,7 +111,7 @@ path <- here::here(
 download.file(url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00508/qsar_oral_toxicity.zip", destfile = path)
 
 unzip(zipfile = path, exdir = here::here(
-  base_folder, "data-raw")
+  "data-raw")
 )
 ```
 
@@ -153,7 +148,6 @@ Here is a visual that may help in understanding the role and nature of the steps
 ```{r, tidymodels_packages_diagram}
 knitr::include_graphics(
   here::here(
-    base_folder,
     "images",
     "tidymodels-pkgs.png"
   )
@@ -188,25 +182,21 @@ The `mutagen` data was already fitted with a number of models. The Github repo c
 ```{r, load_mutagen_models}
 load(
   here::here(
-    base_folder,
     "data",
     "mutagen",
     "data",
     "metrics_wf_set.Rda"))
 load(here::here(
-    base_folder,
     "data",
     "mutagen",
     "data",
     "metrics_xgb.Rda"))
 load(here::here(
-    base_folder,
     "data",
     "mutagen",
     "data",
     "xgb_final_fit.Rda"))
 load(here::here(
-    base_folder,
     "data",
     "mutagen",
     "data",
@@ -423,8 +413,8 @@ fit_lr <- wf_mutagen  %>%
 fit_lr
 
 rf_training_pred <- 
-  predict(fit_mutagen, mutagen_train) %>% 
-  bind_cols(predict(fit_mutagen, mutagen_train, type = "prob")) %>% 
+  predict(fit_lr, mutagen_train) %>% 
+  bind_cols(predict(fit_lr, mutagen_train, type = "prob")) %>% 
   # Add the true outcome data back in
   bind_cols(mutagen_train %>% 
               select(outcome))
@@ -541,7 +531,7 @@ tune_res %>%
 
 ### Using a more fine grained grid
 Based on initial (rough) tuning we can define a more fine-grained grid
-```{r}
+```{r, final_tune_grid}
 rf_grid <- grid_regular(
   mtry(range = c(20, 50)),
   min_n(range = c(10, 25)),
@@ -553,7 +543,7 @@ rf_grid
 
 ### Running another tuning
 This step takes a longer time. I ran this on a 30 core machine with >400 Gb RAM, which took about 8 hours to complete. In stead of running we load the resulting R-object from disk. I commented the code out, so that it cannot be run accidentally.
-```{r}
+```{r, final_tune}
  registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
  tictoc::tic()
  set.seed(456)
@@ -568,14 +558,13 @@ This step takes a longer time. I ran this on a 30 core machine with >400 Gb RAM,
  
  ## get timings
  tictoc::tic.log(format = TRUE)
- write_rds(regular_res, here::here(base_folder, "data", "regular_res.rds"))
+ write_rds(regular_res, here::here("data", "regular_res.rds"))
 ```
 
-```{r}
+```{r, final_tuned}
 ## read regular_res from disk
 regular_res <- readr::read_rds(
   here::here(
-    base_folder,
     "data",
     "regular_res.rds"
   )
@@ -585,7 +574,7 @@ regular_res
 ```
 
 ### View results for fine-grained tuning 
-```{r}
+```{r, final_tuned_plot}
 regular_res %>%
   collect_metrics() %>%
   filter(.metric == "roc_auc") %>%
@@ -599,7 +588,7 @@ regular_res %>%
 ### Fit final model with optimized hyperparameters
 We could rerun all step above, to also optimize the number of `trees` hyperperparamter.
 
-```{r}
+```{r, fit_final_tuned}
 best_auc <- select_best(regular_res, "roc_auc")
 
 final_rf <- finalize_model(
@@ -611,8 +600,8 @@ final_rf
 ```
 
 ### Explore final model
-Because of the many features
-```{r}
+Because of the many features, we can look at their importance using the `{vip}` package.
+```{r, feature_importance}
 library(vip)
 
 rf_mutagen_prep <- prep(rf_rec)
@@ -631,7 +620,6 @@ tictoc::toc(log = TRUE)
 write_rds(
   rf_mutagen_final_fit,
   here::here(
-    base_folder,
     "data",
     "rf_mutagen_final_fit.rds"
   )
@@ -640,7 +628,6 @@ write_rds(
 ## read from disk
 rf_mutagen_final_fit <- read_rds(
   here::here(
-      base_folder,
       "data",
       "rf_mutagen_final_fit.rds")
   )
@@ -650,7 +637,7 @@ rf_mutagen_final_fit %>%
 ```
 
 ## Final fit
-```{r}
+```{r, rf_final_fit}
 rf_final_wf <- workflow() %>%
   add_recipe(rf_rec) %>%
   add_model(final_rf)
@@ -668,7 +655,7 @@ rf_final_wf <- workflow() %>%
 ### Compare AUC-ROC curves 
 To compare performance of the logistic regression and the Random Forest model, we plot both ROC curves in the same graph. When we compare the ROC curve for the logistic regression model (`blue`) with the curve for the Random Forest model (`Red`), we see that indeed the overall performance of the Random Forest model is better.
 
-```{r}
+```{r, compare_roc_curves}
 rf_auc <- 
   rf_final_res %>% 
   collect_predictions() %>% 
@@ -702,10 +689,9 @@ $Specificity=[d/(b+d)]×100$
 $Accuracy=[(a+d)/(a+d+b+c)]$
 
 where a, b, c and d are explained in the image below:
-```{r}
+```{r, confusion_matrix_explained}
 knitr::include_graphics(
   here::here(
-    base_folder,
     "images",
     "conf_mat_spec_sele.png"
   )
@@ -713,7 +699,7 @@ knitr::include_graphics(
 ```
 
 To get the confusion matrix from our final Random Forest fit
-```{r}
+```{r, get_confusion_matrix}
  rf_final_res %>% 
   collect_predictions() -> predictions_tbl
 
@@ -974,7 +960,7 @@ tame_importance_fit %>%
 To look at a more realistic case example, that is not so clear cut as the previous (educational) exercise. Let's look at a dataset containing data suitable for Quantitative Structure Activity Relationships (QSAR).
 We downloaded the data in a code chunk above as "qsar_oral_toxicity.csv". The data should be available in a temporary directory on your machine. To see the contents of this directory type
 ```{r}
-list.files(here::here(base_folder, "data"), full.names = TRUE, pattern = ".csv")
+list.files(here::here("data"), full.names = TRUE, pattern = ".csv")
 ```
 
 <div class="question">
@@ -991,16 +977,17 @@ list.files(here::here(base_folder, "data"), full.names = TRUE, pattern = ".csv")
 </div>
 
 <details><summary>Click for the answer</summary>
-Reading the data into R. This file has no headers. The last column in the data contains the labels.
+Reading the data into R. This file has no headers. The last column in the data contains the labels. We will move that column to the first position.
 ```{r}
 data_qsar <- read_csv2(
   here::here(
-    base_folder, 
-    "data",
+    "data-raw",
     "qsar_oral_toxicity.csv"),
-  col_names = FALSE)
+  col_names = FALSE) |>
+  relocate()
 
 ```
+
 ```{r}
 # answer
 names_new <- paste0("f", 1:1025)
@@ -1474,7 +1461,6 @@ qsar_train |>
 ## XGBoost
 
 See: https://parsnip.tidymodels.org/reference/details_boost_tree_xgboost.html
-
 ```{r}
 
 ## prepare model recipe
@@ -1519,7 +1505,7 @@ predict(xgb_fit, qsar_test)
 xgb_fit %>% 
   predict( new_data = qsar_test) %>% 
   bind_cols(qsar_test["class"]) %>% 
-  accuracy(truth= as.factor(class), .pred_class) 
+  accuracy(truth= class, .pred_class) 
 
 ## confusion matrix
 caret::confusionMatrix(
@@ -1570,7 +1556,7 @@ tree_grid <- grid_regular(
   tree_depth(),
   finalize(mtry(), select(data_qsar , -class)),
   levels = 3)
-
+tree_grid
 ```
 
 Armed with this grid we need to create multiple folds of our data to run the models.
@@ -1610,7 +1596,7 @@ We tune our parameters according the grid, over the data-folds we created. This 
 ```
 
 ## Read results from disk
-```{r}
+```{r, eval=FALSE}
 xgb_res <- readr::read_rds(here::here(base_folder, "data", "xgb_res.rds"))
 xgb_res
 
@@ -1738,5 +1724,3 @@ https://cran.r-project.org/web/packages/doFuture/vignettes/doFuture.html
 #   final_fit$.predictions[[1]]$.pred_class, final_fit$.predictions[[1]]$class )
 
 ```
-
-
