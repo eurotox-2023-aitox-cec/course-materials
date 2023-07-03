@@ -20,34 +20,33 @@ knitr::include_graphics(here::here(
 
 ## Learning objectives
 
-After this lesson:
+After this activity:
 
-- You will be able to explore data suited for training a machine learning algorithm
-- Perform a number of unsupervised exploratory analysis (PCA, t-SNE, k-Means)
-- Build a predictive toxicity model, based on chemical fingerprints
-- Build a model to predict the partition coefficient (LogP), based on fingerprints
-- Enrich your data using an external data source (Tox21 dataset)
-- (Perform a biological read across, based on compound similarity)
+ - You will be familiar with the core utilities and general workflow for developing a (machine learning) model using the `{idymodels}` framework in R 
+ - You will be able to explore data suited for training a machine learning algorithm
+ - Perform a number of unsupervised exploratory analysis (PCA, t-SNE, k-Means)
+ - Build a predictive toxicity model, based on physioco-chemical attributes of chemicals 
+ - Build a model to predict the partition coefficient (LogP), based on fingerprints
 
 ## Machine Learning
 The term machine learning refers to a field of computational science and applications, where methods are used and developed that can 'learn' from data to solve specific tasks. In classicial machine learning these tasks are mostly related to classification. Machine Learning, of short ML, is considered a subfield of Artificial Intelligence and is considered as methods (or models / algorithms) that are trained on (sample) data to to make predictions or or decisions, without explicitly being programmed to do so. The following figure tries to convey the difference between classical problem solving using a rule based approach and modern ML.
-For a gently introduction see [this wiki page](https://en.wikipedia.org/wiki/Machine_learning)
+For a gentle introduction see [this wiki page](https://en.wikipedia.org/wiki/Machine_learning)
 
-## Learning more; TAME
-If after this course you would like to learn more about applying ML in Toxicology, the [The TAME Toolkit](https://github.com/UNCSRP/Data-Analysis-Training-Modules) for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research is a good place to start learning. Some of the examples in this lesson were taken from [chapter 2.2 of the TAME Bookdown project](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling)
+## TAME
+If after this workshop you would like to learn more about applying ML in Toxicology, the [The TAME Toolkit](https://github.com/UNCSRP/Data-Analysis-Training-Modules) for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research is a good place to start learning. Some of the examples in this lesson were taken from [chapter 2.2 of the TAME Bookdown project](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling)
 
 [Reference:](https://doi.org/10.3389/ftox.2022.893924) Roell, K., Koval, L. E., Boyles, R., Patlewicz, G., Ring, C., Rider, C. V., Ward-Caviness, C., Reif, D. M., Jaspers, I., Fry, R. C., & Rager, J. E. (2022). Development of the InTelligence And Machine LEarning (TAME) Toolkit for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research. Frontiers in toxicology, 4, 893924. https://doi.org/10.3389/ftox.2022.893924
 
 ## Tidymodels
-The Tidymodels framework is an extension of the `{tidyverse}` suite. It is especially focused towards providing a generalized way to define, run and optimize models in R. To get started we will walk you though the 'getting started' part of the [Tidymodels documentation](https://www.tidymodels.org/start/)
-
-To learn more on Tidymodels, there is a very elaborate [bookdown project](https://www.tmwr.org)
+The Tidymodels framework is an extension of the `{tidyverse}` suite. It is especially focused towards providing a generalized way to define, run and optimize models in R. To get started we will walk you through a customized example, relevant for toxicological compound classification. To learn more see [Tidymodels documentation](https://www.tidymodels.org/start/. To learn even more about Tidymodels, there is also a very elaborate [bookdown project](https://www.tmwr.org)
 
 ## Packages
+Here we load all the packages that we need for this demo.
+
 ```{r, load_packages}
 library(tidymodels)
 library(tidyverse)
-library(broom.mixed) # for converting bayesian models to tidy tibbles
+library(broom.mixed)
 library(dotwhisker)  
 library(QSARdata)
 library(bundle)
@@ -56,14 +55,10 @@ library(finetune)
 library(tune)
 ```
 
-```{r, include=FALSE, eval=FALSE}
-# see also from https://raw.githubusercontent.com/topepo/tune/bfd0d89b23fe374d1f6f70e618639e7d27f310a7/inst/examples/mutagen_svm_pca.R
-```
-
-## Data 
+## Datasets 
 For this lesson we will use a number of different datasets. Because we need datasets that include somewhat larger volumes of data, we also download data on the fly.
 
-Let's get the datasets 
+Let's get the datasets in our R-session 
 
 ### Mutagen
 A dataset from [Github](https://github.com/simonpcouch/mutagen).
@@ -81,9 +76,9 @@ load(
 
 ```
 
-### Chemical_Lists_PFAS-Statins from the EPA
-This datset was curated and povided in the TAME project mentioned above
-It can be directly downloaded from Github
+### A dataset on statins and PFAS from the EPA
+This dataset was curated and provided in the TAME project mentioned above. It can be directly downloaded from Github.
+
 ```{r, download_pfas_data}
 url <- "https://raw.githubusercontent.com/UNCSRP/Data-Analysis-Training-Modules/main/Chapter%202/2.2%20ML%20Predictive%20Modeling/Module2_2_Chemical_Lists_PFAS-Statins.csv"
 
@@ -93,35 +88,7 @@ data_tame <- read_csv(
     )
 ```
 
-### Tox21 end Chembl, using the [biobricks.ai bricks](https://biobricks.ai/) 
-Biobricks.ai is developed by researcher Dr. Tom Luechtefeld as a 'data-as-dependency' approach. By integrating large public databases into so-called bricks, the database data can be accessed through a standardized api and downloaded to a local machine or Virtual Machine. The bricks are version controlled, so this enables a reproducible workflow.
-We will not use this data in this lesson, but it will get you started in finding and downloading data for your own modelling purposes. To get started on Biobricks, the code below will get you the 'tox21' brick.
-
-```{r, use_biobricks, eval=FALSE}
-devtools::install_github("biobricks-ai/bricktools")
-## Tip, set you Github token in your RStudio sessionusing 'credentials::set_github_pat(), enter a token at the prompt
-
-tox21_tbls  <- purrr::imap_dfr(tbls,~ tibble(tbl=.y,rows=nrow(.x))) |> arrange(desc(rows))
-tox21_names <- purrr::imap_dfr(tbls,~ tibble(tbl=.y,name=names(.x)))
-
-ids <- tox21_names |> filter(grepl("ID$",name))
-ids <- ids |> split(ids$name) |> discard(~nrow(.)<2) 
-names(ids)
-tox21_names 
-
-## look at one table
-x <- tbls$`tox21-ache-p3.aggregrated.parquet` |> dplyr::collect()
-x
-
-data_all <- 
-  map(
-    .x = tbls,
-    .f = dplyr::collect
-  )
-```
-
 ### QSAR data
-
 An example dataset that contains classical chemical fingerprints.
 [From the UCL repository](https://archive.ics.uci.edu/ml/datasets/QSAR+oral+toxicity)
 
@@ -132,28 +99,28 @@ Attribute Information:
 1-1024) binary molecular fingerprint
 1025) experimental class: positive (very toxic) and negative (not very toxic)
 
-Relevant Papers:
-
+Data source:
 [D. Ballabio, F. Grisoni, V. Consonni, R. Todeschini (2019), Integrated QSAR models to predict acute oral systemic toxicity, Molecular Informatics, 38, 180012; doi: 10.1002/minf.201800124](https://doi.org/10.1002/minf.201800124)
 
-Files `ID.txt`,`class.csv` and `X.csv` in folder `./data/lesson5/qsar` were obtained from the author of the paper above via personal communication. Orinal sources files (Matlab scripts and matrix files can be downloaded from the paper's DOI as supplemental data). They are included here for reproducibility reasons in `./data/lesson5/qsar/oral_toxicity_data.rar`
+Files `ID.txt`,`class.csv` and `X.csv` in folder `./data-raw/` were obtained from the author of the paper above via personal communication. Original sources files (Matlab scripts and matrix files can be downloaded from the paper's DOI as supplemental data). They are included here for reproducibility reasons in `./data/lesson5/qsar/oral_toxicity_data.rar`
 
-The code below downloads the data to a the `./data` folder and unzips the file in a temporary folder. We read the file into R from that temp file.
+The code below downloads the data to a the `./data-raw` folder and unzips the file in a temporary folder. We read the file into R from that temp file.
+
 ```{r, download_qsar_data}
 path <- here::here(
   base_folder,
-  "data",
+  "data-raw",
   "qsar_oral_toxicity.zip"
 )
 
 download.file(url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00508/qsar_oral_toxicity.zip", destfile = path)
 
 unzip(zipfile = path, exdir = here::here(
-  base_folder, "data")
+  base_folder, "data-raw")
 )
 ```
 
-## Tidymodels - overview
+## Tidymodels overview
 
 ### Tidymodels core packages
 [The core Tidymodels collection of packages consists of](https://www.tidymodels.org/packages/)
@@ -167,12 +134,12 @@ unzip(zipfile = path, exdir = here::here(
 
 The tidymodels packages allow you to specify, run, fine tune and evaluate models in a consistent way. They provide a workflow for defining and updating modelling approaches and take away the effort of accomodating syntactical differences between different model implementations, so that you can focus on the stuff that is really important. 
 
-To my experience, the overall workflow is a little hard to get your head around initially, but putting in the effort to really understand it, pays off in the long run. Certainly, I am finding myself less busy with diving into the specific documentation of a model engine, but focussing more on the actual modelling part of the job!   
+From my experience, the overall workflow is a little hard to get your head around initially, but putting in the effort to really understand it, pays off in the long run. Certainly, I am finding myself less busy with diving into the specific documentation of a model engine, but focussing more on the actual modelling part of the job!   
 
 The steps we need to walk though are:
 
  1. Generate a training and a testing partition of the data. This can be done in several ways: Splitting into a single test and training set or genrating multiple so-called `folds`, that contain multiple (random) splits. It is crucial to understand the data before splitting. For example, you need to be able to provide answer to the question whrther the 'thing' you are trying to predict is present equally in the data, or that (e.g. in a binary classification, there are many more instances of one class, compared to the other) 
- 1. Define a `{recipe}` for which variables and which dataset we would like to use for modelling. The recipe also holds so called `steps` that include any preprocessing we would need for the model we would like to fit. Different models have diffenrent requirements for preprocessing. See: for an overview [the Tidymodels Bookdown](https://www.tmwr.org/pre-proc-table.html) 
+ 1. Define a `{recipe}` for which variables and which dataset we would like to use for modelling. The recipe also holds so called `steps` that include any preprocessing we would need for the model we would like to fit. Different models have diffenrent requirements for preprocessing. See: for an overview [the Tidymodels Bookdown](https://www.tmwr.org/pre-proc-table.html)
  1. A model `specification`, that contains the details on which model to run and which values to set for the hyperparameters of a model. Hyperparameters can be viewed as the dials with which you tune the model. They regulate e.g. overfitting or number of interactions. Tuning a models is an important aspect of modelling and can be done in several ways. A very structured way to find the most optimal hyperparameters is `grid tuning`. The `{tune}` package is facilitating this in the tidymodels suite.   
  1. Definition of the model `metrics` that will help decide how well the fit of the model is for the data 
  1. A `workflow` where the recipe and the model specification come together. This is the 'wedding planner' of the tidymodels. It can be considered as the plan for the model (without actually running the model) 
@@ -193,25 +160,27 @@ knitr::include_graphics(
 )
 ```
 
-### Getting started with `{tidymodels}`
+## Getting started with `{tidymodels}`
 
 If we put the complete `{tidymodels}` workflow together we can define all the models and run them on our `mutagen` data. Here we will focus on just one model to see all the step described above in sequence 
 The complete code for running all the models shown in the plot above can be found in the mutagen repo: https://raw.githubusercontent.com/simonpcouch/mutagen/main/source/fit.R
 
 See also: [`{tidymodels}` getting started documentation](https://www.tidymodels.org/start/) 
 
-### Build our first model with Tidymodels for mutagens
-Clean up the names. As a convention, I like to put everything in lowercase. This saves brainpower by not having to ever worry about catitals. Same thing for `snake_case`. I like that best for readability. 
+### Build our first model with Tidymodels
+Let's train our first model, using tidymodels on the `mutagen_tbl` data. We will do some clean up of the ciolumn names first. As a convention, I like to put everything in lowercase. This saves brainpower by not having to ever worry about capitals. Same thing for `snake_case`. I like that best for readability and consistency. 
 
 The code for modelling the `mutagen` data was adapted from https://github.com/simonpcouch/mutagen.
 
 ### Clean names mutagen data
+the `clean_names()` from the `{janitor}` package is very handy.
 ```{r}
 mutagen_tbl <- mutagen_tbl |> janitor::clean_names()
 ```
 
 ### Load processed modelling results
 The `mutagen` data was already fitted with a number of models. The Github repo contains the fitting results, which we load here.
+
 ```{r, load_mutagen_models}
 load(
   here::here(
@@ -244,7 +213,7 @@ load(here::here(
 As a first step in modeling, it’s always a good idea to plot the data.
 Here we plot two important determining attributes for chemicals: the `Molecular Weight` and the `Partition Coefficient`
 
-```{r,eval=FALSE}
+```{r}
 ggplot(mutagen_tbl) +
   aes(x = mw, y = mlogp, color = outcome) +
   geom_point(shape = 1, alpha = 0.7) +
@@ -257,6 +226,7 @@ You could repeat this visualization step with using different sets of variables.
 
 ### Evaluating multiple models
 The previously run modelling results (model performance) experiments with the `mutagen` dataset can be visualized, using the dataframe containing the model metrics. Which model is best? Which is worst?
+
 ```{r, plot_mutagen_models_results}
 #| fig-alt: "A ggplot2 faceted boxplot, where different model types are on the x-axis and the out-of-sample ROC AUCs associated with those models are on the y-axis. The shown metrics values range from 0 to around 0.9. The x-axis is roughly sorted by descending ROC AUC, where the left-most model, XGBoost Boosted Tree, tends to have the best performance. Other models proposed were, from left to right, Bagged Decision Tree, Support Vector Machine, Logistic Regression, Bagged MARS, and Neural Network."
 #| echo: false
@@ -321,6 +291,28 @@ var_data_types |>
 
 This supports our assumption that all variables in the `mutagen` dataset are `numeric`: either `integer` or `double`. Because `factor` is a special integer with class `factor`, we see only 1 red dot. if you look carefully, you will see it to the far left of the plot. This is the only factor. Which variable do you think this is? We do not need to change the datatype of any of our variables for our first model (or any that will follow for that matter). **Usually, wild data like this is not so clean, so please always perform this check, before moving on.** 
 
+### Subsetting the data for run-time
+The mutagen data contains 1580 columns. This is a lot of features. Because the example here is for educational purposes, I decided to reduce the dataset to 100 randomly selected columns. In real life, you would perform a more regirous and substantiated feature seelction procedure. For example, you could use Ridge Regression or LASSO to select features. Or use a permutation approach in combination with a tree based algorithm. A good example on how to do this is described in [this blog by Julia Silge](https://juliasilge.com/blog/lasso-the-office/) or in [this video by Adrew Couch](https://youtu.be/1AKug0tgux8).
+
+```{r}
+set.seed(123)
+# Assuming your data frame is named "df"
+
+# Select the first column
+selected_columns <- c(1)
+
+# Generate random indices for the remaining 99 columns
+remaining_columns <- sample(2:ncol(mutagen_tbl), 99)
+
+# Combine the selected columns
+selected_columns <- c(selected_columns, remaining_columns)
+
+# Subset the data frame with the selected columns
+mutagen_tbl_selected <- mutagen_tbl[, selected_columns]
+
+```
+
+
 ### Tidymodels workflow illustration on the `mutagen` data
 Let's put all the pieces of the complete tidymodels workflow together and run a logistic model on a single split (1-fold cross validation) of the `mutagen` data.
 
@@ -337,7 +329,7 @@ First step is to devide the data into a training and a test set. The `set.seed()
 
 ```{r, mutagen_data_split}
 set.seed(1)
-mutagen_split <- initial_split(data = mutagen_tbl)
+mutagen_split <- initial_split(data = mutagen_tbl_selected)
 mutagen_train <- training(mutagen_split)
 mutagen_test <- testing(mutagen_split)
 ```
@@ -365,13 +357,13 @@ Thirdly, removing zero variance (zv) variables is what we will do in our first r
 
 ```{r, any_na_in_mutagen_data, include=FALSE}
 ## assert missing data -> should be zero
-sum(is.na(mutagen_tbl))
+sum(is.na(mutagen_tbl_selected))
 ```
 
 ```{r, mutagen_recipe_logistic_regression}
 recipe_lr <-
   recipe(outcome ~ ., mutagen_train) %>%
-  step_nzv(all_predictors()) |>
+  step_zv(all_predictors()) |>
   step_corr(all_predictors())
 
 ```
@@ -418,10 +410,10 @@ rf_training_pred %>%                # training set predictions
 acc_train
 ```
 
-The accuracy of the model on the training data is `r acc_train` which is relatively closer to 1.0 as it is to 0.5 (mre chance). This basically means that the model was able to learn predictive patterns from the training data. To see if the model is able to _generalise_ what it learned when exposed to new data, we evaluate the model on out hold-out (or so-called `test` data). We created a test dataset when splitting the data at the start of the modelling.
+The accuracy of the model on the training data is `r acc_train$.estimate` which is above 0.5 (mere chance). This basically means that the model was able to learn predictive patterns from the training data. To see if the model is able to _generalise_ what it learned when exposed to new data, we evaluate the model on our hold-out (or so-called `test` data). We created a test dataset when splitting the data at the start of the modelling.
 
 ### Evaluating the model on the test data
-The resulting accuracy is less then the accuracy on the training data, but not too bad. 
+The resulting accuracy is less then the accuracy on the training data, but not too bad for a first go and a relatively simple classification model. 
 
 ```{r, mutagen_validate_logistic_regression}
 lr_testing_pred <- 
@@ -440,18 +432,19 @@ lr_testing_pred %>%
 
 ```
 
+
 Next, we will explore our improvement options, using different model types, hyperparameter tuning and multiple fold cross-validation, to see if we can crank up the model performance.
 
-## Running a different model type
-We will try a Random Forest model (RF), that is able to buodl a model from a selection of so-called `predictors` or `parameters`. While building the new RF model, we will also demo how to tune the hyperparameters for such a model, using a grid-search. The code used in the following fragment was adapted from [this blog by Julia Silge, who works for Posit](https://juliasilge.com/blog/sf-trees-random-tuning/)
+## Running a different model type, Random Forest
+We will try a Random Forest model (RF), that is able to construct a model from a selection of so-called `predictors` or `parameters`. While building the new RF model, we will also demo how to tune the hyperparameters for such a model, using a grid-search. The code used in the following fragment was adapted from [this blog by Julia Silge, who works for Posit](https://juliasilge.com/blog/sf-trees-random-tuning/)
 
 ### Finding the best Random Forest model with hyperparameter tuning
-First we define a new model specification. You can find all the models available [here](https://www.tidymodels.org/find/parsnip/). Let define a new models specification that will define what model and model-engine to use and which hyperparameters we will be `tuning`. The "ranger" engine takes three hyperparameters that we need to set before running the model. We set the `trees` parameter to a fixed value and we will set the `mtry` and `min_n` to value `tune()`, which means that we will be using optimizing the performance of the model by tuning these two hyperparameters. We could have chosen to also tune the `trees` parameter. It would just mean replacing the value `1000` for `tune()` and including values for this parameter in the tuning grid. It would also mean an increase of computation time. For now, we leave it up to you to experiment with this.   
+First we define a new model specification. You can find all the models available [here](https://www.tidymodels.org/find/parsnip/). Let define a new models specification that will define what model and model-engine to use and which hyperparameters we will be `tuning`. The "ranger" engine takes three hyperparameters that we need to set before running the model. We set the `trees` parameter to a fixed value and we will set the `mtry` and `min_n` to value `tune()`, which means that we will be optimizing the performance of the model by tuning these two hyperparameters. We could have chosen to also tune the `trees` parameter. It would just mean replacing the value `1000` for `tune()` and including values for this parameter in the tuning grid. It would also mean a significant increase of computation time. For now, we leave it up to you to experiment with this.   
 
 ```{r, mutagen_specification_random_forest}
 rf_tune_spec <- rand_forest(
   mtry = tune(),
-  trees = 1000,
+  trees = 100,
   min_n = tune()) %>%
   set_mode("classification") %>%
   set_engine("ranger")
@@ -461,7 +454,7 @@ rf_tune_spec <- rand_forest(
 When looking at the table for preprocessing steps for Random Forest, we see that the only step recommended is imputation. Here we have a dataset that does not include missing values, so we can skip that step. See [this blog](https://juliasilge.com/blog/captive-africans-voyages/) for more info on imputation with tidymodels. Let's start with the most simple recipe we can make: just the data, the specification of the outcome variable and all other columns in the dataset as predictors.
 
 ```{r, mutagen_recipe_random_forest}
-rf_rec <- recipe(outcome ~ ., data = mutagen_tbl) 
+rf_rec <- recipe(outcome ~ ., data = mutagen_train) 
 ```
 
 ### Defining a new modelling workflow
@@ -474,7 +467,7 @@ rf_tune_wf
 ```
 
 ### Defining a grid for `grid search` hyperparameter tuning.
-In order to define a number of possible values for the hyperparameters that we will tune, we will define a grid. Because we are tuning two hyperparameters here, we will define a grid that holds varying values for combinations of both parameters, to find the best combination. We will train the models, based on a number of cross-validation resamples. This means that we create different sets of training and test data. Default, the function `vfold_cv()` will create 10 so-called folds, containing roughly the same amount of training and validation samples from the data. Each fold id different, beacause the samples for the traiining and validation set are randomly sampled from the input data. 
+In order to define a number of possible values for the hyperparameters that we will tune, we will define a grid. Because we are tuning two hyperparameters here, we will define a grid that holds varying values for combinations of both parameters, to find the best combination. We will train the models, based on a number of cross-validation resamples. This means that we create different sets of training and test data. Default, the function `vfold_cv()` will create 10 so-called folds, containing roughly the same amount of training and validation samples from the data. Each fold is different, because the samples for the training and validation set are randomly sampled from the input data. 
 
 ```{r, mutagen_grid_random_forest}
 set.seed(234)
@@ -482,26 +475,179 @@ mutagen_folds <- vfold_cv(mutagen_train)
 mutagen_folds
 ```
 
-### Running the tuning 
+### Running the initial tuning 
 Initially we will use a grid tuning where we are just setting the dimensions of the grid (`grid = 20`). The `workflow` and cross validation `folds` are the input for this grid tuning. This step takes a long time. I ran this on my Macbook, M1 with 8 cores and 16 Gb RAM, which took about 
 
-```{r}
+```{r, eval=FALSE}
+registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
 
-
-  registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
-  
-  tictoc::tic()
+ tictoc::tic()
   set.seed(345)
   tune_res <- tune_grid(
   rf_tune_wf,
   resamples = mutagen_folds,
   grid = 4
   )
-  tictoc::toc()
+  tictoc::toc(log = TRUE)
 
 tune_res
+
+## get timings
+tictoc::tic.log(format = TRUE)
 ```
 
+### Visualize tuning
+We chose a small grid of only 4 points for each tuning parameter and a low number of trees to keep the run time low. Note that if you increase these number, run time will become slower up to the point that you either need to wait for several hours or run things on a larger machine. On a 30 core machine with >400 Gb of RAM, the step above took about 1.5 minutes. If you would like to time runtime, you could use [the `{tictoc}` package](https://www.jumpingrivers.com/blog/timing-in-r/). The output can be retrieved by printing `toc.log(format = TRUE)` to the console to get the elapsed time, since tic(). 
+```{r}
+tune_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, min_n, mtry) %>%
+  pivot_longer(min_n:mtry,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+
+
+```
+
+### Using a more fine grained grid
+Based on inital (rough) tuning we can define a more fine-grained grid
+```{r}
+rf_grid <- grid_regular(
+  mtry(range = c(20, 50)),
+  min_n(range = c(15, 25)),
+  levels = 5
+)
+
+rf_grid
+```
+
+### Running another tuning
+This step takes a long time. I ran this on a 30 core machine with >400 Gb RAM, which took about 8 hours to complete. In stead of running we load the resulting R-object from disk. I commented the code out, so that it cannot be run accidentally.
+```{r, eval=FALSE}
+ registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+ tictoc::tic()
+ set.seed(456)
+ regular_res <- tune_grid(
+   rf_tune_wf,
+   resamples = mutagen_folds,
+   grid = rf_grid
+ )
+ tictoc::toc()
+ 
+ regular_res
+ 
+ ## get timings
+ tictoc::tic.log(format = TRUE)
+ write_rds(regular_res, here::here(base_folder, "data", "regular_res.rds"))
+```
+
+```{r}
+## read regular_res from disk
+regular_res <- readr::read_rds(
+  here::here(
+    base_folder,
+    "data",
+    "regular_res.rds"
+  )
+)
+
+regular_res
+```
+
+### View results for fine-grained tuning 
+```{r}
+regular_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  mutate(min_n = factor(min_n)) %>%
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+### Fit final model with optimized hyperparameters
+We could rerun all step above, to also optimize the number of `trees` hyperperparamter.
+
+```{r}
+best_auc <- select_best(regular_res, "roc_auc")
+
+final_rf <- finalize_model(
+  rf_tune_spec,
+  best_auc
+)
+
+final_rf
+```
+
+### Explore final model
+Because of the many features
+```{r}
+library(vip)
+
+rf_mutagen_prep <- prep(rf_rec)
+mutagen_juiced <- juice(rf_mutagen_prep)
+
+registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+
+tictoc::tic()
+final_rf %>%
+  set_engine("ranger", importance = "permutation") %>%
+  fit(outcome ~ .,
+    data = mutagen_juiced) -> rf_mutagen_final_fit
+tictoc::toc(log = TRUE)
+
+## write to disk
+write_rds(
+  rf_mutagen_final_fit,
+  here::here(
+    base_folder,
+    "data",
+    "rf_mutagen_final_fit.rds"
+  )
+)
+
+## read from disk
+rf_mutagen_final_fit <- read_rds(
+  here::here(
+      base_folder,
+      "data",
+      "rf_mutagen_final_fit.rds")
+  )
+
+rf_mutagen_final_fit %>%
+  vip(geom = "point")
+```
+
+## Final fit
+```{r}
+final_wf <- workflow() %>%
+  add_recipe(rf_rec) %>%
+  add_model(final_rf)
+
+final_res <- final_wf %>%
+  last_fit(mutagen_split)
+
+final_res %>%
+  collect_metrics()
+```
+
+Not too bad, and better then logis
+
+
+```{r}
+tidy(final_res) %>% 
+  dwplot(dot_args = list(size = 2, color = "black"),
+         whisker_args = list(color = "black"),
+         vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+
+```
 
 
 ## Visualize Random Forest modelling

@@ -1,0 +1,2207 @@
+# Part 2 -- Machine Learning with R
+
+```{r, base_folder, include=FALSE}
+base_folder <- here::here(
+  "track-a",
+  "machine-learning-with-r"
+)
+load(here::here(
+  base_folder,
+  "course_urls.RData"))
+les <- 2
+```
+
+```{r, tidymodels_hex, echo=FALSE, message=FALSE, out.width = "50%", fig.align = "center"}
+knitr::include_graphics(here::here(
+  base_folder,
+  "images",
+  "tidymodels.svg"))
+```
+
+## Learning objectives
+
+After this activity:
+
+ - You will be familiar with the core utilitiers and general workflow for developing a model using the `{idymodels}` framework in R 
+ - You will be able to explore data suited for training a machine learning algorithm
+ - Perform a number of unsupervised exploratory analysis (PCA, t-SNE, k-Means)
+ - Build a predictive toxicity model, based on physioco-chemical attributes of chemicals 
+ - Build a model to predict the partition coefficient (LogP), based on fingerprints
+
+## Machine Learning
+The term machine learning refers to a field of computational science and applications, where methods are used and developed that can 'learn' from data to solve specific tasks. In classicial machine learning these tasks are mostly related to classification. Machine Learning, of short ML, is considered a subfield of Artificial Intelligence and is considered as methods (or models / algorithms) that are trained on (sample) data to to make predictions or or decisions, without explicitly being programmed to do so. The following figure tries to convey the difference between classical problem solving using a rule based approach and modern ML.
+For a gently introduction see [this wiki page](https://en.wikipedia.org/wiki/Machine_learning)
+
+## Learning more; TAME
+If after this course you would like to learn more about applying ML in Toxicology, the [The TAME Toolkit](https://github.com/UNCSRP/Data-Analysis-Training-Modules) for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research is a good place to start learning. Some of the examples in this lesson were taken from [chapter 2.2 of the TAME Bookdown project](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling)
+
+[Reference:](https://doi.org/10.3389/ftox.2022.893924) Roell, K., Koval, L. E., Boyles, R., Patlewicz, G., Ring, C., Rider, C. V., Ward-Caviness, C., Reif, D. M., Jaspers, I., Fry, R. C., & Rager, J. E. (2022). Development of the InTelligence And Machine LEarning (TAME) Toolkit for Introductory Data Science, Chemical-Biological Analyses, Predictive Modeling, and Database Mining for Environmental Health Research. Frontiers in toxicology, 4, 893924. https://doi.org/10.3389/ftox.2022.893924
+
+## Tidymodels
+The Tidymodels framework is an extension of the `{tidyverse}` suite. It is especially focused towards providing a generalized way to define, run and optimize models in R. To get started we will walk you through a customized example, relevant for toxicological compound classification. To learn more see [Tidymodels documentation](https://www.tidymodels.org/start/. To learn even more about Tidymodels, there is also a very elaborate [bookdown project](https://www.tmwr.org)
+
+## Packages
+Here we load all the packages that we need for this demo.
+```{r, load_packages}
+library(tidymodels)
+library(tidyverse)
+library(broom.mixed)
+library(dotwhisker)  
+library(QSARdata)
+library(bundle)
+library(doMC)
+library(finetune)
+library(tune)
+```
+
+## Datasets 
+For this lesson we will use a number of different datasets. Because we need datasets that include somewhat larger volumes of data, we also download data on the fly.
+
+Let's get the datasets in our R-session 
+
+### Mutagen
+A dataset from [Github](https://github.com/simonpcouch/mutagen).
+```{r, load_mutagen_data}
+load(
+ here::here(
+   base_folder,
+   "data",
+   "mutagen",
+   "data",
+   "mutagen_tbl.Rda"
+ )
+)
+
+```
+
+### A dataset on statins and PFAS from the EPA
+This dataset was curated and provided in the TAME project mentioned above
+It can be directly downloaded from Github
+```{r, download_pfas_data}
+url <- "https://raw.githubusercontent.com/UNCSRP/Data-Analysis-Training-Modules/main/Chapter%202/2.2%20ML%20Predictive%20Modeling/Module2_2_Chemical_Lists_PFAS-Statins.csv"
+
+data_tame <- read_csv(
+    url, 
+    locale = readr::locale(encoding ="UTF-8")
+    )
+```
+
+### QSAR data
+
+An example dataset that contains classical chemical fingerprints.
+[From the UCL repository](https://archive.ics.uci.edu/ml/datasets/QSAR+oral+toxicity)
+
+Metadata:
+Attribute Information:
+
+1024 binary molecular fingerprints and 1 experimental class:
+1-1024) binary molecular fingerprint
+1025) experimental class: positive (very toxic) and negative (not very toxic)
+
+Relevant Papers:
+
+[D. Ballabio, F. Grisoni, V. Consonni, R. Todeschini (2019), Integrated QSAR models to predict acute oral systemic toxicity, Molecular Informatics, 38, 180012; doi: 10.1002/minf.201800124](https://doi.org/10.1002/minf.201800124)
+
+Files `ID.txt`,`class.csv` and `X.csv` in folder `./data/qsar` were obtained from the author of the paper above via personal communication. Orinal sources files (Matlab scripts and matrix files can be downloaded from the paper's DOI as supplemental data). They are included here for reproducibility reasons in `./data/qsar/oral_toxicity_data.rar`
+
+The code below downloads the data to a the `./data-raw` folder and unzips the file in a temporary folder. We read the file into R from that temp file.
+```{r, download_qsar_data}
+path <- here::here(
+  base_folder,
+  "data-raw",
+  "qsar_oral_toxicity.zip"
+)
+
+download.file(url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00508/qsar_oral_toxicity.zip", destfile = path)
+
+unzip(zipfile = path, exdir = here::here(
+  base_folder, "data-raw")
+)
+
+re
+```
+
+## Tidymodels - overview
+
+### Tidymodels core packages
+[The core Tidymodels collection of packages consists of](https://www.tidymodels.org/packages/)
+
+ - `{rsample}` - for splitting and resampling data
+ - `{parsnip}` - provides an unified interface for different models
+ - `{recipes}` - for pre-processing data
+ - `{workflows}` - for putting the recipe and the model together
+ - `{tune}` - for tuning the hyperparameters  
+ - `{yardstick}` - for model evaluation and validation
+
+The tidymodels packages allow you to specify, run, fine tune and evaluate models in a consistent way. They provide a workflow for defining and updating modelling approaches and take away the effort of accomodating syntactical differences between different model implementations, so that you can focus on the stuff that is really important. 
+
+To my experience, the overall workflow is a little hard to get your head around initially, but putting in the effort to really understand it, pays off in the long run. Certainly, I am finding myself less busy with diving into the specific documentation of a model engine, but focussing more on the actual modelling part of the job!   
+
+The steps we need to walk though are:
+
+ 1. Generate a training and a testing partition of the data. This can be done in several ways: Splitting into a single test and training set or genrating multiple so-called `folds`, that contain multiple (random) splits. It is crucial to understand the data before splitting. For example, you need to be able to provide answer to the question whrther the 'thing' you are trying to predict is present equally in the data, or that (e.g. in a binary classification, there are many more instances of one class, compared to the other) 
+ 1. Define a `{recipe}` for which variables and which dataset we would like to use for modelling. The recipe also holds so called `steps` that include any preprocessing we would need for the model we would like to fit. Different models have diffenrent requirements for preprocessing. See: for an overview [the Tidymodels Bookdown](https://www.tmwr.org/pre-proc-table.html) 
+ 1. A model `specification`, that contains the details on which model to run and which values to set for the hyperparameters of a model. Hyperparameters can be viewed as the dials with which you tune the model. They regulate e.g. overfitting or number of interactions. Tuning a models is an important aspect of modelling and can be done in several ways. A very structured way to find the most optimal hyperparameters is `grid tuning`. The `{tune}` package is facilitating this in the tidymodels suite.   
+ 1. Definition of the model `metrics` that will help decide how well the fit of the model is for the data 
+ 1. A `workflow` where the recipe and the model specification come together. This is the 'wedding planner' of the tidymodels. It can be considered as the plan for the model (without actually running the model) 
+ 1. A model `fit`. This is the step where actually run out model, or models, and _fit_ the model to our data. From the fit we can extract the metrics, predictions, statistics and other valuable information that tells us how the model to the data.
+ 1. Model performance: Getting the model performance metrics such as `specificiy`, `selectivity` and overall performance as `accuracy`, can be obtained from the `fit` object. To evaluate the model, we need to expose the model to our test dataset, or datasets if we use folds.   
+ 1. When we use tuning, we rerun the steps of model training and evaluation multiple times to find the most optimal value for the hyperperameters. We then evaluate the best model and arrive at our final model.
+ 1. You can extend this workflow to running more then one model type. This is what we will do in this hands-on workshop.
+
+Here is a visual that may help in understanding the role and nature of the steps, and the different tidymodels packages, in the modelling process.
+
+```{r, tidymodels_packages_diagram}
+knitr::include_graphics(
+  here::here(
+    base_folder,
+    "images",
+    "tidymodels-pkgs.png"
+  )
+)
+```
+
+### Getting started with `{tidymodels}`
+
+If we put the complete `{tidymodels}` workflow together we can define all the models and run them on our `mutagen` data. Here we will focus on just one model to see all the step described above in sequence 
+The complete code for running all the models shown in the plot above can be found in the mutagen repo: https://raw.githubusercontent.com/simonpcouch/mutagen/main/source/fit.R
+
+See also: [`{tidymodels}` getting started documentation](https://www.tidymodels.org/start/) 
+
+### Build our first model with Tidymodels for mutagens
+Clean up the names. As a convention, I like to put everything in lowercase. This saves brainpower by not having to ever worry about catitals. Same thing for `snake_case`. I like that best for readability. 
+
+The code for modelling the `mutagen` data was adapted from https://github.com/simonpcouch/mutagen.
+
+### Clean names mutagen data
+```{r}
+mutagen_tbl <- mutagen_tbl |> janitor::clean_names()
+```
+
+### Load processed modelling results
+The `mutagen` data was already fitted with a number of models. The Github repo contains the fitting results, which we load here.
+```{r, load_mutagen_models}
+load(
+  here::here(
+    base_folder,
+    "data",
+    "mutagen",
+    "data",
+    "metrics_wf_set.Rda"))
+load(here::here(
+    base_folder,
+    "data",
+    "mutagen",
+    "data",
+    "metrics_xgb.Rda"))
+load(here::here(
+    base_folder,
+    "data",
+    "mutagen",
+    "data",
+    "xgb_final_fit.Rda"))
+load(here::here(
+    base_folder,
+    "data",
+    "mutagen",
+    "data",
+    "final_fit.Rda"))
+```
+
+### Plotting the data
+As a first step in modeling, it’s always a good idea to plot the data.
+Here we plot two important determining attributes for chemicals: the `Molecular Weight` and the `Partition Coefficient`.
+
+```{r,eval=FALSE}
+ggplot(mutagen_tbl) +
+  aes(x = mw, y = mlogp, color = outcome) +
+  geom_point(shape = 1, alpha = 0.7) +
+  labs(x = "Mol. Weight", y = "Partition Coefficient") +
+  theme_minimal() +
+  scale_color_manual(values = c("#ba0600", "#71b075"))
+```
+
+You could repeat this visualization step with using different sets of variables. Then you will probably learn that no two variables can easily split the data into mutagens and non-mutagens. In order to build a predictive model that can predict the class of a compound (mutagen or non-mutagen), we need a more advanced method. Below we will build a logistic regression prediction model to illustrate all the steps in the tidymodels workflow. We choose logistic regression here as the model that does not have the lowest performance of all the models tested, and it is the more simpler model of the ones that have a good performance. Depending on the nature and intended use of the prediction model, it may not always be feasible to choose the most complex and lesser explainable model. The following section shows the performance results of six different models that were run on the `mutagen` data. 
+
+### Evaluating multiple models
+The previously run modelling results (model performance) experiments with the `mutagen` dataset can be visualized, using the dataframe containing the model metrics. Which model is best? Which is worst?
+```{r, plot_mutagen_models_results}
+#| fig-alt: "A ggplot2 faceted boxplot, where different model types are on the x-axis and the out-of-sample ROC AUCs associated with those models are on the y-axis. The shown metrics values range from 0 to around 0.9. The x-axis is roughly sorted by descending ROC AUC, where the left-most model, XGBoost Boosted Tree, tends to have the best performance. Other models proposed were, from left to right, Bagged Decision Tree, Support Vector Machine, Logistic Regression, Bagged MARS, and Neural Network."
+#| echo: false
+metrics_wf_set %>%
+  mutate(
+    model = case_when(
+      model == "boost_tree" ~ "XGBoost Boosted Tree",
+      model == "logistic_reg" ~ "Logistic Regression",
+      model == "bag_tree" ~ "Bagged Decision Tree",
+      model == "bag_mars" ~ "Bagged MARS",
+      model == "svm_rbf" ~ "Support Vector Machine",
+      model == "mlp" ~ "Neural Networks"
+    )
+  ) %>%
+  filter(.metric == "roc_auc") %>%
+  arrange(desc(.estimate)) %>%
+  mutate(model = fct_inorder(model)) %>%
+  select(Model = model, `ROC AUC` = .estimate) %>%
+  ggplot() +
+  aes(x = Model, y = `ROC AUC`) +
+  geom_boxplot() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+### Data types
+When running models, it is very important to make sure that the datatype of the variables in the model are according what the model-algorithm _expects_. For example, many models require the outcome variable to be a factor, neural networks expect all the data to be tensors, and for logistic regression we need to convert categorical variables to dummy encoding. This makes it of importance to check the datatype and set or correct the datatype accordingly.
+
+let's make a graph of the datatypes of all the variables in the `mutagen` data. We first get all the datatypes of the 1580 variables in the data, and store this in a dataframe. From this we create a graph.
+
+```{r, data_types_mutagen}
+var_data_classes <- map_chr(
+  .x = mutagen_tbl,
+  .f = class
+)
+
+var_data_types <- map_df(
+  .x = mutagen_tbl,
+  .f = typeof
+) |>
+  pivot_longer(
+    1:ncol(mutagen_tbl), 
+    names_to = "var_name",
+    values_to = "typeof") |>
+  mutate(var_position = 1:ncol(mutagen_tbl),
+         var_class = var_data_classes)
+
+set.seed(123)
+var_data_types |>
+  ggplot(
+    aes(x = reorder(as_factor(var_name), var_position),
+        y = typeof)) +
+      geom_point(
+        aes(
+          colour = var_class,
+          shape = var_class), 
+        position = "jitter", alpha = 0.3) +
+  xlab(NULL) +
+  theme(axis.text.x = element_blank(), axis.ticks = element_blank()) +
+  scale_x_discrete(limits = unique(var_data_types$var_name))
+```
+
+This supports our assumption that all variables in the `mutagen` dataset are `numeric`: either `integer` or `double`. Because `factor` is a special integer with class `factor`, we see only 1 red dot. if you look carefully, you will see it to the far left of the plot. This is the only factor. Which variable do you think this is? We do not need to change the datatype of any of our variables for our first model (or any that will follow for that matter). **Usually, wild data like this is not so clean, so please always perform this check, before moving on.** 
+
+### Tidymodels workflow illustration on the `mutagen` data
+Let's put all the pieces of the complete tidymodels workflow together and run a logistic model on a single split (1-fold cross validation) of the `mutagen` data.
+
+The code below was adapted from: https://github.com/simonpcouch/mutagen/blob/main/source/fit.R
+
+To set the stage for modelling, which can be resource intensive, we create a cluster on the local cores of the computer. We leave one core available for the system.
+```{r, prepare_for_multicore}
+## multicore running
+registerDoMC(cores = max(1, parallelly::availableCores() - 1))
+```
+
+### Split data
+First step is to devide the data into a training and a test set. The `set.seed()` function can be used for reproducibility of the computations that are dependent on random numbers.
+
+```{r, mutagen_data_split}
+set.seed(1)
+mutagen_split <- initial_split(data = mutagen_tbl)
+mutagen_train <- training(mutagen_split)
+mutagen_test <- testing(mutagen_split)
+```
+
+### Define model (specification)
+With specific model functions (here: `logistic_reg()`), we choose the model type. A full list of tidymodels model implementation can be found [here]((https://www.tidymodels.org/find/parsnip/).
+
+```{r, model_specification_logistic_regression}
+spec_lr <-
+logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+```
+
+### Define recipe 
+A recipe contains the specification for which dataset we will use for modelling and all the preprocessing steps we need to perform, before the data is ready for modelling. When we look at [this table](https://www.tmwr.org/pre-proc-table.html), we can see that for 'logistic regression' (the first model we will try), a few pre-processing steps seem mandatory:
+
+ 1.dummy (`step_dummy()`) 	
+ 1.zv (`step_nzv()`) 	
+ 1. impute (`step_impute()`) 	
+ 1. decorrelate (`step_corr()`) 
+
+Technically, we would need to do all the pre-processing of the data, before moving on. Here we can skip a few steps though: There are no categorical variables in the data, so we do not need to convert any to dummy variables. Secondly, there are no missing values in the data (did we check that? - How would you do a quick check, whether that is true?). 
+Thirdly, removing zero variance (zv) variables is what we will do in our first recipe. Let's first see how that recipe works for this data and model. We can revisit or improve the recipe later and add a step, using the `add_step`. Let's put the recipe together. 
+
+```{r, any_na_in_mutagen_data, include=FALSE}
+## assert missing data -> should be zero
+sum(is.na(mutagen_tbl))
+```
+
+```{r, mutagen_recipe_logistic_regression}
+recipe_lr <-
+  recipe(outcome ~ ., mutagen_train) %>%
+  step_nzv(all_predictors()) |>
+  step_corr(all_predictors())
+
+```
+
+### Model performance metrics 
+Next, we need to specify what we would like to see for determining the performance of the model. Different modelling algorithms have different types of metrics. For more info see e.g [this blog](https://towardsdatascience.com/metrics-to-evaluate-your-machine-learning-algorithm-f10ba6e38234). Because we have a binary classification problem (mutagen vs. non-mutagen classification), we will chose the AUC - ROC evaluation metric here. The classification accuracy; indicating which proportion was classified correctly and which was not, can also be selected here.   
+
+```{r, metric_logistic_regression}
+mutagen_metrics <- metric_set(roc_auc, accuracy)
+```
+
+### Combine model specification and recipe a workflow 
+Now we are ready to setup our complete modelling workflow. This `workflow` contains the model `specification` and the `recipe`.
+
+```{r, mutagen_workflow_logistic_regression}
+wf_mutagen <-
+  workflow(
+    spec = spec_lr,
+    recipe_lr
+    )
+
+wf_mutagen
+
+```
+
+### Fitting the logistic regression model
+Now we use the workflow, we created to fit the model on our training data.
+This steps takes a while. We use the training partition of the data, that we created previously.
+
+```{r, mutagen_fit_logistic_regression}
+fit_mutagen <- wf_mutagen  %>% 
+  fit(data = mutagen_train)
+fit_mutagen
+
+rf_training_pred <- 
+  predict(fit_mutagen, mutagen_train) %>% 
+  bind_cols(predict(fit_mutagen, mutagen_train, type = "prob")) %>% 
+  # Add the true outcome data back in
+  bind_cols(mutagen_train %>% 
+              select(outcome))
+
+rf_training_pred %>%                # training set predictions
+  accuracy(truth = outcome, .pred_class) -> acc_train
+acc_train
+```
+
+The accuracy of the model on the training data is `r acc_train` which is relatively closer to 1.0 as it is to 0.5 (mre chance). This basically means that the model was able to learn predictive patterns from the training data. To see if the model is able to _generalise_ what it learned when exposed to new data, we evaluate the model on out hold-out (or so-called `test` data). We created a test dataset when splitting the data at the start of the modelling.
+
+### Evaluating the model on the test data
+The resulting accuracy is less then the accuracy on the training data, but not too bad. 
+
+```{r, mutagen_validate_logistic_regression}
+lr_testing_pred <- 
+  predict(fit_mutagen, mutagen_test) %>% 
+  bind_cols(predict(fit_mutagen, mutagen_test, type = "prob")) %>% 
+  bind_cols(mutagen_test %>% select(outcome))
+
+lr_testing_pred %>%                   # test set predictions
+  accuracy(outcome, .pred_class)
+
+## Let's plot the AUC-ROC 
+lr_testing_pred %>% 
+  roc_curve(truth = outcome, .pred_mutagen) %>% 
+  mutate(model = "Logistic Regression") |>
+  autoplot()
+
+```
+
+Next, we will explore our improvement options, using different model types, hyperparameter tuning and multiple fold cross-validation, to see if we can crank up the model performance.
+
+## Running a different model type
+We will try a Random Forest model (RF), that is able to buodl a model from a selection of so-called `predictors` or `parameters`. While building the new RF model, we will also demo how to tune the hyperparameters for such a model, using a grid-search. The code used in the following fragment was adapted from [this blog by Julia Silge, who works for Posit](https://juliasilge.com/blog/sf-trees-random-tuning/)
+
+### Finding the best Random Forest model with hyperparameter tuning
+First we define a new model specification. You can find all the models available [here](https://www.tidymodels.org/find/parsnip/). Let define a new models specification that will define what model and model-engine to use and which hyperparameters we will be `tuning`. The "ranger" engine takes three hyperparameters that we need to set before running the model. We set the `trees` parameter to a fixed value and we will set the `mtry` and `min_n` to value `tune()`, which means that we will be using optimizing the performance of the model by tuning these two hyperparameters. We could have chosen to also tune the `trees` parameter. It would just mean replacing the value `1000` for `tune()` and including values for this parameter in the tuning grid. It would also mean an increase of computation time. For now, we leave it up to you to experiment with this.   
+
+```{r, mutagen_specification_random_forest}
+rf_tune_spec <- rand_forest(
+  mtry = tune(),
+  trees = 20,
+  min_n = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("ranger")
+```
+
+### A new recipe for RF modelling
+When looking at the table for preprocessing steps for Random Forest, we see that the only step recommended is imputation. Here we have a dataset that does not include missing values, so we can skip that step. See [this blog](https://juliasilge.com/blog/captive-africans-voyages/) for more info on imputation with tidymodels. Let's start with the most simple recipe we can make: just the data, the specification of the outcome variable and all other columns in the dataset as predictors.
+
+```{r, mutagen_recipe_random_forest}
+rf_rec <- recipe(outcome ~ ., data = mutagen_tbl) 
+```
+
+### Defining a new modelling workflow
+```{r, mutagen_workflow_random_forest}
+rf_tune_wf <- workflow() %>%
+  add_recipe(rf_rec) %>%
+  add_model(rf_tune_spec)
+
+rf_tune_wf
+```
+
+### Defining a grid for `grid search` hyperparameter tuning.
+In order to define a number of possible values for the hyperparameters that we will tune, we will define a grid. Because we are tuning two hyperparameters here, we will define a grid that holds varying values for combinations of both parameters, to find the best combination. We will train the models, based on a number of cross-validation resamples. This means that we create different sets of training and test data. Default, the function `vfold_cv()` will create 10 so-called folds, containing roughly the same amount of training and validation samples from the data. Each fold is different, because the samples for the training and validation set are randomly sampled from the input data. 
+
+```{r, mutagen_grid_random_forest}
+set.seed(234)
+mutagen_folds <- vfold_cv(mutagen_train)
+mutagen_folds
+```
+
+### Running the initial tuning 
+Initially we will use a grid tuning where we are just setting the dimensions of the grid (`grid = 20`). The `workflow` and cross validation `folds` are the input for this grid tuning. This step takes a long time. I ran this on my Macbook, M1 with 8 cores and 16 Gb RAM, which took about 
+
+```{r}
+registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+
+ tictoc::tic()
+  set.seed(345)
+  tune_res <- tune_grid(
+  rf_tune_wf,
+  resamples = mutagen_folds,
+  grid = 4
+  )
+  tictoc::toc(log = TRUE)
+
+tune_res
+
+## get timings
+tictoc::tic.log(format = TRUE)
+```
+
+### Visualize tuning
+We chose a small grid of only 4 points for each tuning parameter and a low number of trees to keep the run time low. Note that if you increase these number, run time will become slower up to the point that you either need to wait for several hours or run things on a larger machine. On a 30 core machine with >400 Gb of RAM, the step above took about 1.5 minutes. If you would like to time runtime, you could use [the `{tictoc}` package](https://www.jumpingrivers.com/blog/timing-in-r/). The output can be retrieved by printing `toc.log(format = TRUE)` to the console to get the elapsed time, since tic(). 
+```{r}
+tune_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  select(mean, min_n, mtry) %>%
+  pivot_longer(min_n:mtry,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+
+
+```
+
+### Using a more fine grained grid
+Based on inital (rough) tuning we can define a more fine-grained grid
+```{r}
+rf_grid <- grid_regular(
+  mtry(range = c(1200, 1580)),
+  min_n(range = c(15, 25)),
+  levels = 5
+)
+
+rf_grid
+```
+
+### Running another tuning
+This step takes a long time. I ran this on a 30 core machine with >400 Gb RAM, which took about 8 hours to complete. In stead of running we load the resulting R-object from disk. I commented the code out, so that it cannot be run accidentally.
+```{r, eval=FALSE}
+# registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+# tictoc::tic()
+# set.seed(456)
+# regular_res <- tune_grid(
+#   rf_tune_wf,
+#   resamples = mutagen_folds,
+#   grid = rf_grid
+# )
+# tictoc::toc()
+# 
+# regular_res
+# 
+# ## get timings
+# tictoc::tic.log(format = TRUE)
+# write_rds(regular_res, here::here(base_folder, "data", "regular_res.rds"))
+```
+
+```{r}
+## read regular_res from disk
+regular_res <- readr::read_rds(
+  here::here(
+    base_folder,
+    "data",
+    "regular_res.rds"
+  )
+)
+
+regular_res
+```
+
+### View results for fine-grained tuning 
+```{r}
+regular_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  mutate(min_n = factor(min_n)) %>%
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+### Fit final model with optimized hyperparameters
+We could rerun all step above, to also optimize the number of `trees` hyperperparamter.
+
+```{r}
+best_auc <- select_best(regular_res, "roc_auc")
+
+final_rf <- finalize_model(
+  rf_tune_spec,
+  best_auc
+)
+
+final_rf
+```
+
+### Explore final model
+Because of the many features
+```{r}
+library(vip)
+
+rf_mutagen_prep <- prep(rf_rec)
+mutagen_juiced <- juice(rf_mutagen_prep)
+
+registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+
+tictoc::tic()
+final_rf %>%
+  set_engine("ranger", importance = "permutation") %>%
+  fit(outcome ~ .,
+    data = mutagen_juiced) -> rf_mutagen_final_fit
+tictoc::toc(log = TRUE)
+
+## write to disk
+write_rds(
+  rf_mutagen_final_fit,
+  here::here(
+    base_folder,
+    "data",
+    "rf_mutagen_final_fit.rds"
+  )
+)
+```
+
+```{r}
+## read from disk
+rf_mutagen_final_fit <- read_rds(
+  here::here(
+      base_folder,
+      "data",
+      "rf_mutagen_final_fit.rds")
+  )
+
+rf_mutagen_final_fit %>%
+  vip(geom = "point")
+```
+
+## Final fit
+```{r}
+final_wf <- workflow() %>%
+  add_recipe(rf_rec) %>%
+  add_model(final_rf)
+
+final_res <- final_wf %>%
+  last_fit(mutagen_split)
+
+final_res %>%
+  collect_metrics()
+```
+
+Not too bad, and better then logis
+
+
+```{r}
+class(final_res)
+final
+
+tidy(final_res) %>% 
+  dwplot(dot_args = list(size = 2, color = "black"),
+         whisker_args = list(color = "black"),
+         vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+
+```
+
+
+## Visualize Random Forest modelling
+https://stats.stackexchange.com/questions/41443/how-to-actually-plot-a-sample-tree-from-randomforestgettree
+
+
+
+
+## Run all the models
+```{r}
+
+recipe_normalize <-
+  recipe_basic %>%
+  step_YeoJohnson(all_double_predictors()) %>%
+  step_normalize(all_double_predictors())
+
+recipe_pca <- 
+  recipe_normalize %>%
+  step_pca(all_numeric_predictors(), num_comp = tune())
+
+# model specifications -------------
+spec_lr <-
+  logistic_reg() %>%
+  set_mode("classification")
+
+spec_bm <- 
+  bag_mars(num_terms = tune(), prod_degree = tune()) %>%
+  set_engine("earth") %>% 
+  set_mode("classification")
+
+spec_bt <- 
+  bag_tree(cost_complexity = tune(), tree_depth = tune(), min_n = tune()) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+spec_nn <- 
+  mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>%
+  set_engine("nnet", MaxNWts = 15000) %>%
+  set_mode("classification")
+
+spec_svm <- 
+  svm_rbf(cost = tune(), rbf_sigma = tune(), margin = tune()) %>%
+  set_mode("classification")
+
+spec_xgb <-
+  boost_tree(trees = tune(), min_n = tune(), tree_depth = tune(),
+             learn_rate = tune(), stop_iter = 10) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# metrics ------
+
+```
+
+
+
+
+
+
+```{r}
+linear_reg() |>
+  set_engine("lm")
+
+## because "lm" is the default engine this is the same as
+linear_reg()
+
+```
+
+We can choose a different computational 'engine' as
+```{r}
+linear_reg() |>
+  set_engine("keras")
+```
+
+The [documentation page](https://parsnip.tidymodels.org/reference/linear_reg.html) for `linear_reg()` lists all the possible engines. We’ll save our model object using the default engine as lm_mod.
+```{r}
+lm_mod <- linear_reg()
+```
+
+From here, the model can be estimated or trained using the fit() function:
+```{r}
+lm_fit <- 
+  lm_mod %>% 
+  fit(width ~ initial_volume * food_regime, data = urchins)
+lm_fit
+```
+
+We can get the model summary using the `summary()` function, but a more tidy output will be achieved if we use the `tidy()` function.
+```{r}
+tidy(lm_fit)
+```
+
+If you like to see a visual representation of the model results, which can be handy to e.g. compare models.
+```{r}
+tidy(lm_fit) %>% 
+  dwplot(dot_args = list(size = 2, color = "black"),
+         whisker_args = list(color = "black"),
+         vline = geom_vline(xintercept = 0, colour = "grey50", linetype = 2))
+
+```
+
+This fitted object lm_fit has the lm model output built-in, which you can access with lm_fit$fit, but there are some benefits to using the fitted parsnip model object when it comes to predicting.
+
+Suppose that, for a publication, it would be particularly interesting to make a plot of the mean body size for urchins that started the experiment with an initial volume of 20ml. To create such a graph, we start with some new example data that we will make predictions for, to show in our graph:
+
+```{r}
+new_points <- expand.grid(initial_volume = 20, 
+                          food_regime = c("Initial", "Low", "High"))
+new_points
+```
+
+To get our predicted results, we can use the predict() function to find the mean values at 20ml.
+
+It is also important to communicate the variability, so we also need to find the predicted confidence intervals. If we had used `lm()` to fit the model directly, a few minutes of reading the documentation page for `predict.lm()` would explain how to do this. However, if we decide to use a different model to estimate urchin size, it is likely that a completely different syntax would be required.
+
+This is the strength of `{tidymodels}`. It provides a single interface and modelling syntax, to build many different types of models. With `{tidymodels}`, the types of predicted values are standardized so that we can use the same syntax to get these values.
+
+First, let’s generate the mean body width values:
+```{r}
+mean_pred <- predict(lm_fit, new_data = new_points)
+mean_pred
+```
+
+When making predictions, the tidymodels convention is to always produce a tibble of results with standardized column names. This makes it easy to combine the original data and the predictions in a usable format:
+
+```{r}
+conf_int_pred <- predict(lm_fit, 
+                         new_data = new_points, 
+                         type = "conf_int")
+conf_int_pred
+
+# Now combine: 
+plot_data <- 
+  new_points %>% 
+  bind_cols(mean_pred) %>% 
+  bind_cols(conf_int_pred)
+
+# and plot:
+ggplot(plot_data, aes(x = food_regime)) + 
+  geom_point(aes(y = .pred)) + 
+  geom_errorbar(aes(ymin = .pred_lower, 
+                    ymax = .pred_upper),
+                width = .2) + 
+  labs(y = "urchin size") +
+  ggtitle("Ordinal least squares linear regression") -> p_lm
+
+
+p_lm
+```
+
+Of course, we will demo how we can choose a different modelling engine. As said, we do not need to change the syntax, when we use `{tidymodels}`.
+
+The [documentation](https://github.com/stan-dev/rstanarm) on the `{rstanarm}` package shows us that the `stan_glm()` function can be used to estimate this model, and that the function arguments that need to be specified are called prior and prior_intercept. If we were to use `stan_glm()`, we would need to change our syntax to model the `urchin` data with this `{rstanarm}` engine. It turns out that `linear_reg()` has a stan engine. Since these prior distribution arguments are specific to the Stan software, they are passed as arguments to parsnip::set_engine(). If we want to use this engine, we need to install the `{rstanarm}` package, in order for tidymodels to be able to use the engine under the hood 
+
+```{r}
+# install.packages("rstanarm")
+library(rstanarm)
+```
+
+After that, the same exact fit() call is used:
+
+```{r}
+# set the prior distribution
+prior_dist <- rstanarm::student_t(df = 1)
+```
+
+Now we can fir our model, using a Bayesian modelling engine.
+```{r}
+set.seed(123)
+
+# make the parsnip model
+bayes_mod <-   
+  linear_reg() %>% 
+  set_engine("stan", 
+             prior_intercept = prior_dist, 
+             prior = prior_dist) 
+
+# train the model
+bayes_fit <- 
+  bayes_mod %>% 
+  fit(width ~ initial_volume * food_regime, data = urchins)
+
+print(bayes_fit, digits = 5)
+
+```
+
+This kind of Bayesian analysis (like many models) involves randomly generated numbers in its fitting procedure. We can use set.seed() to ensure that the same (pseudo-)random numbers are generated each time we run this code. The number 123 isn’t special or related to our data; it is just a “seed” used to choose random numbers.
+
+To update the parameter table, the tidy() method is once again used:
+```{r}
+tidy(bayes_fit, conf.int = TRUE)
+```
+
+A goal of the tidymodels packages is that the interfaces to common tasks are standardized (as seen in the tidy() results above). The same is true for getting predictions; we can use the same code even though the underlying packages use very different syntax:
+
+```{r}
+bayes_plot_data <- 
+  new_points %>% 
+  bind_cols(predict(bayes_fit, new_data = new_points)) %>% 
+  bind_cols(predict(bayes_fit, new_data = new_points, type = "conf_int"))
+
+ggplot(bayes_plot_data, aes(x = food_regime)) + 
+  geom_point(aes(y = .pred)) + 
+  geom_errorbar(aes(ymin = .pred_lower, ymax = .pred_upper), width = .2) + 
+  labs(y = "urchin size") + 
+  ggtitle("Bayesian model with t(1) prior distribution") -> p_bayes
+
+
+cowplot::plot_grid(p_lm, p_bayes)
+
+```
+
+The parsnip package can work with many model types, engines, and arguments. Check out tidymodels.org/find/parsnip to see what is available.
+
+
+### Preprocssing the data for modelling using `{recipes}`
+
+Recipes are built as a series of preprocessing steps, such as:
+
+ - converting qualitative predictors to indicator variables (also known as dummy variables)
+ - transforming data to be on a different scale (e.g., taking the logarithm of a variable)
+ - transforming whole groups of predictors together
+ - extracting key features from raw variables (e.g., getting the day of the week out of a date variable)
+
+```{r}
+library(tidymodels) ## for the recipes package, along with the rest of tidymodels
+
+## Helper packages
+#install.packages(c("nycflights13", "skimr"))
+library(nycflights13)    ## for flight data
+library(skimr)      ## for variable summaries
+library(tidyverse)
+```
+
+Let’s use the nycflights13 data to predict whether a plane arrives more than 30 minutes late. This data set contains information on 325,819 flights departing near New York City in 2013. Let’s start by loading the data and making a few changes to the variables:
+
+```{r}
+set.seed(123)
+
+flight_data <- 
+  flights |>
+  mutate(
+    # Convert the arrival delay to a factor
+    arr_delay = ifelse(arr_delay >= 30, "late", "on_time"),
+    arr_delay = factor(arr_delay),
+    # We will use the date (not date-time) in the recipe below
+    date = lubridate::as_date(time_hour)
+  ) |>
+  # Include the weather data
+  inner_join(weather, by = c("origin", "time_hour")) |>
+  # Only retain the specific columns we will use
+  select(dep_time, flight, origin, dest, air_time, distance, 
+         carrier, date, arr_delay, time_hour) %>% 
+  # Exclude missing data
+  na.omit() |>
+  # For creating models, it is better to have qualitative columns
+  # encoded as factors (instead of character strings)
+  mutate_if(is.character, as.factor) |> ## it is custom to move the 'class' column to the first position, as the dependent variable
+  relocate(arr_delay, 1)
+
+```
+
+We can see that about 16% of the flights in this data set arrived more than 30 minutes late.
+
+```{r}
+flight_data |> 
+  group_by(arr_delay) |>
+  tally() -> counts
+
+counts$n[1]/sum(counts$n) *100
+  
+```
+  
+Before we start building up our recipe, let’s take a quick look at a few specific variables that will be important for both preprocessing and modeling.
+
+First, notice that the variable we created called arr_delay is a factor variable; it is important that our outcome variable for training a logistic regression model is a factor.
+```{r}
+glimpse(flight_data)
+```
+
+If we want to explore the data further, we can use the `skim()` function
+```{r}
+flight_data %>% 
+  skimr::skim(dest, carrier) |> DT::datatable()
+```
+These two variables are what we call zero variance variables. They contain information on the rows in the form of ids for the destionation and the carrier. We can use these types of variables to identify problems later.
+
+To get started, let’s split this single dataset into two: a training set and a testing set. We’ll keep most of the rows in the original dataset (subset chosen randomly) in the training set. The training data will be used to fit the model, and the testing set will be used to measure model performance.
+
+To do this, we can use the `{rsample}` package to create an object that contains the information on how to split the data, and then two more `{rsample}` functions to create data frames for the training and testing sets:
+```{r}
+library(tidymodels)
+# Fix the random numbers by setting the seed 
+# This enables the analysis to be reproducible when random numbers are used 
+set.seed(222)
+# Put 3/4 of the data into the training set 
+data_split <- initial_split(flight_data, prop = 3/4)
+
+# Create data frames for the two sets:
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+```
+
+## Create recipe and roles {#recipe}
+
+To get started, let's create a recipe for a simple logistic regression model. Before training the model, we can use a recipe to create a few new predictors and conduct some preprocessing required by the model. 
+
+Let's initiate a new recipe: 
+
+```{r initial-recipe}
+flights_rec <- 
+  recipe(arr_delay ~ ., data = train_data) 
+```
+
+The [`recipe()` function](https://recipes.tidymodels.org/reference/recipe.html) as we used it here has two arguments:
+
++ A **formula**. Any variable on the left-hand side of the tilde (`~`) is considered the model outcome (here, `arr_delay`). On the right-hand side of the tilde are the predictors. Variables may be listed by name, or you can use the dot (`.`) to indicate all other variables as predictors.
+
++ The **data**. A recipe is associated with the data set used to create the model. This will typically be the _training_ set, so `data = train_data` here. 
+
+Now we can add [roles](https://recipes.tidymodels.org/reference/roles.html) to this recipe. We can use the [`update_role()` function](https://recipes.tidymodels.org/reference/roles.html) to let recipes know that `flight` and `time_hour` are variables with a custom role that we called `"ID"` (a role can have any character value). Whereas our formula included all variables in the training set other than `arr_delay` as predictors, this tells the recipe to keep these two variables but not use them as either outcomes or predictors.
+This is particularly useful in a reproducible workflow, because we do not need to mutate the data itself to select the predictors. Furthermore, there is no need to copy the dataset as another variable in our R environment.
+
+```{r recipe-roles}
+flights_rec <- 
+  recipe(arr_delay ~ ., data = train_data) %>% 
+  update_role(flight, time_hour, new_role = "ID") 
+```
+
+This step of adding roles to a recipe is optional; the purpose of using it here is that those two variables can be retained in the data but not included in the model. This can be convenient when, after the model is fit, we want to investigate some poorly predicted value. These ID columns will be available and can be used to try to understand what went wrong.
+
+To get the current set of variables and roles, use the `summary()` function: 
+
+```{r summary}
+summary(flights_rec)
+```
+
+## Create features {#features}
+
+Now we can start adding steps onto our recipe using the pipe operator. Perhaps it is reasonable for the date of the flight to have an effect on the likelihood of a late arrival. How should the date be encoded into the model? The `date` column has an R `date` object so including that column "as is" will mean that the model will convert it to a numeric format equal to the number of days after a reference date: 
+```{r dates, R.options = list(tibble.print_min = 5)}
+flight_data %>% 
+  distinct(date) %>% 
+  mutate(numeric_date = as.numeric(date)) 
+```
+
+It's possible that the numeric date variable is a good option for modeling; perhaps the model would benefit from a linear trend between the log-odds of a late arrival and the numeric date variable. However, it might be better to add model terms _derived_ from the date that have a better potential to be important to the model. For example, we could derive the following meaningful features from the single `date` variable: 
+
+* the day of the week,
+* the month, and
+* whether or not the date corresponds to a holiday. 
+ 
+Let's do all three of these by adding steps to our recipe:
+```{r date-recipe}
+flights_rec <- 
+  recipe(arr_delay ~ ., data = train_data) %>% 
+  update_role(flight, time_hour, new_role = "ID") %>% 
+  step_date(date, features = c("dow", "month")) %>%               
+  step_holiday(date, 
+               holidays = timeDate::listHolidays("US"), 
+               keep_original_cols = FALSE)
+```
+
+What do each of these steps do?
+
+* With [`step_date()`](https://recipes.tidymodels.org/reference/step_date.html), we created two new factor columns with the appropriate day of the week and the month. 
+
+* With [`step_holiday()`](https://recipes.tidymodels.org/reference/step_holiday.html), we created a binary variable indicating whether the current date is a holiday or not. The argument value of `timeDate::listHolidays("US")` uses the [timeDate package](https://cran.r-project.org/web/packages/timeDate/index.html) to list the `r length(timeDate::listHolidays("US"))` standard US holidays.
+
+* With `keep_original_cols = FALSE`, we remove the original `date` variable since we no longer want it in the model. Many recipe steps that create new variables have this argument.
+
+Next, we'll turn our attention to the variable types of our predictors. Because we plan to train a logistic regression model, we know that predictors will ultimately need to be numeric, as opposed to nominal data like strings and factor variables. In other words, there may be a difference in how we store our data (in factors inside a data frame), and how the underlying equations require them (a purely numeric matrix).
+
+For factors like `dest` and `origin`, [standard practice](https://bookdown.org/max/FES/creating-dummy-variables-for-unordered-categories.html) is to convert them into _dummy_ or _indicator_ variables to make them numeric. These are binary values for each level of the factor. For example, our `origin` variable has values of `"EWR"`, `"JFK"`, and `"LGA"`. The standard dummy variable encoding, shown below, will create _two_ numeric columns of the data that are 1 when the originating airport is `"JFK"` or `"LGA"` and zero otherwise, respectively. 
+
+```{r calc-dummy, include = FALSE}
+four_origins <- 
+  train_data %>% 
+  select(origin, arr_delay) %>% 
+  dplyr::slice(1:4)
+
+origin_dummies <- 
+  recipe(arr_delay ~ origin, data = train_data) %>% 
+  step_dummy(origin, keep_original_cols = TRUE) %>%
+  prep(training = four_origins)
+```
+
+```{r dummy-table, echo = FALSE}
+library(kableExtra)
+# Get a row for each factor level
+bake(origin_dummies, new_data = NULL, origin, starts_with("origin")) %>% 
+  distinct() %>% 
+  knitr::kable() %>% 
+  kable_styling(full_width = FALSE)
+```
+
+But, unlike the standard model formula methods in R, a recipe **does not** automatically create these dummy variables for you; you'll need to tell your recipe to add this step. This is for two reasons. First, many models do not require [numeric predictors](https://bookdown.org/max/FES/categorical-trees.html), so dummy variables may not always be preferred. Second, recipes can also be used for purposes outside of modeling, where non-dummy versions of the variables may work better. For example, you may want to make a table or a plot with a variable as a single factor. For those reasons, you need to explicitly tell recipes to create dummy variables using `step_dummy()`.
+
+Apply the example above to the whole dataset:
+```{r dummy}
+flights_rec <- 
+  recipe(arr_delay ~ ., data = train_data) %>% 
+  update_role(flight, time_hour, new_role = "ID") %>% 
+  step_date(date, features = c("dow", "month")) %>%               
+  step_holiday(date, 
+               holidays = timeDate::listHolidays("US"), 
+               keep_original_cols = FALSE) %>% 
+  step_dummy(all_nominal_predictors())
+```
+
+Here, we did something different than before: instead of applying a step to an individual variable, we used [selectors](https://recipes.tidymodels.org/reference/selections.html) to apply this recipe step to several variables at once, `all_nominal_predictors()`. The [selector functions](https://recipes.tidymodels.org/reference/selections.html) can be combined to select intersections of variables.
+
+At this stage in the recipe, this step selects the `origin`, `dest`, and `carrier` variables. It also includes two new variables, `date_dow` and `date_month`, that were created by the earlier `step_date()`. 
+
+More generally, the recipe selectors mean that you don't always have to apply steps to individual variables one at a time. Since a recipe knows the _variable type_ and _role_ of each column, they can also be selected (or dropped) using this information. 
+
+We need one final step to add to our recipe. Since `carrier` and `dest` have some infrequently occurring factor values, it is possible that dummy variables might be created for values that don't exist in the training set. For example, there is one destination that is only in the test set: 
+
+```{r zv-cols}
+test_data %>% 
+  distinct(dest) %>% 
+  anti_join(train_data)
+```
+
+When the recipe is applied to the training set, a column is made for `r dplyr::setdiff(test_data$dest, train_data$dest)` because the factor levels come from `flight_data` (not the training set), but this column will contain all zeros. This is a "zero-variance predictor" that has no information within the column. While some R functions will not produce an error for such predictors, it usually causes warnings and other issues. `step_zv()` will remove columns from the data when the training set data have a single value, so it is added to the recipe *after* `step_dummy()`: 
+
+```{r zv}
+flights_rec <- 
+  recipe(arr_delay ~ ., data = train_data) %>% 
+  update_role(flight, time_hour, new_role = "ID") %>% 
+  step_date(date, features = c("dow", "month")) %>%               
+  step_holiday(date, 
+               holidays = timeDate::listHolidays("US"), 
+               keep_original_cols = FALSE) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors())
+```
+
+Now we've created a _specification_ of what should be done with the data. How do we use the recipe we made? 
+
+## Fit a model with a recipe {#fit-workflow}
+
+Let's use logistic regression to model the flight data. As we saw in [*Build a Model*](/start/models/), we start by [building a model specification](/start/models/#build-model) using the parsnip package: 
+
+```{r model}
+lr_mod <- 
+  logistic_reg() %>% 
+  set_engine("glm")
+```
+
+
+We will want to use our recipe across several steps as we train and test our model. We will: 
+
+1. **Process the recipe using the training set**: This involves any estimation or calculations based on the training set. For our recipe, the training set will be used to determine which predictors should be converted to dummy variables and which predictors will have zero-variance in the training set, and should be slated for removal. 
+ 
+1. **Apply the recipe to the training set**: We create the final predictor set on the training set. 
+ 
+1. **Apply the recipe to the test set**: We create the final predictor set on the test set. Nothing is recomputed and no information from the test set is used here; the dummy variable and zero-variance results from the training set are applied to the test set. 
+ 
+To simplify this process, we can use a _model workflow_, which pairs a model and recipe together. This is a straightforward approach because different recipes are often needed for different models, so when a model and recipe are bundled, it becomes easier to train and test _workflows_. We'll use the [workflows package](https://workflows.tidymodels.org/) from tidymodels to bundle our parsnip model (`lr_mod`) with our recipe (`flights_rec`).
+
+```{r workflow}
+flights_wflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(flights_rec)
+
+flights_wflow
+```
+
+Now, there is a single function that can be used to prepare the recipe and train the model from the resulting predictors: `fit()`
+
+```{r fit}
+## this step is the actual fitting and can take a 
+flights_fit <- 
+  flights_wflow %>% 
+  fit(data = train_data)
+```
+ 
+This object has the finalized recipe and fitted model objects inside. You may want to extract the model or recipe objects from the workflow. To do this, you can use the helper functions `extract_fit_parsnip()` and `extract_recipe()`. For example, here we pull the fitted model object then use the `broom::tidy()` function to get a tidy tibble of model coefficients: 
+
+```{r fit-glance, R.options = list(tibble.print_min = 5)}
+flights_fit %>% 
+  extract_fit_parsnip() %>% 
+  tidy()
+```
+
+## Use a trained workflow to predict {#predict-workflow}
+
+Our goal was to predict whether a plane arrives more than 30 minutes late. We have just:
+
+ 1. Built the model (`lr_mod`),
+ 1. Created a preprocessing recipe (`flights_rec`),
+ 1. Bundled the model and recipe (`flights_wflow`), and 
+ 1. Trained our workflow using a single call to `fit()`. 
+
+The next step is to use the trained workflow (`flights_fit`) to predict with the unseen test data, which we will do with a single call to `predict()`. The `predict()` method applies the recipe to the new data, then passes them to the fitted model. 
+
+```{r pred-class, R.options = list(tibble.print_min = 5)}
+predict(flights_fit, test_data)
+```
+
+Because our outcome variable here is a factor, the output from `predict()` returns the predicted class: `late` versus `on_time`. But, let's say we want the predicted class probabilities for each flight instead. To return those, we can specify `type = "prob"` when we use `predict()` or use `augment()` with the model plus test data to save them together:
+
+```{r test-pred, R.options = list(tibble.print_min = 5)}
+flights_aug <- 
+  augment(flights_fit, test_data)
+
+# The data look like: 
+flights_aug %>%
+  select(arr_delay, time_hour, flight, .pred_class, .pred_on_time)
+```
+
+Now that we have a tibble with our predicted class probabilities, how will we evaluate the performance of our workflow? We can see from these first few rows that our model predicted these 5 on time flights correctly because the values of `.pred_on_time` are *p* > .50. But we also know that we have `r scales::comma(nrow(flights_aug))` rows total to predict. We would like to calculate a metric that tells how well our model predicted late arrivals, compared to the true status of our outcome variable, `arr_delay`.
+
+Let's use the area under the [ROC curve](https://bookdown.org/max/FES/measuring-performance.html#class-metrics) as our metric, computed using `roc_curve()` and `roc_auc()` from the [yardstick package](https://yardstick.tidymodels.org/). 
+
+To generate a ROC curve, we need the predicted class probabilities for `late` and `on_time`, which we just calculated in the code chunk above. We can create the ROC curve with these values, using `roc_curve()` and then piping to the `autoplot()` method: 
+
+```{r roc-plot}
+flights_aug %>% 
+  roc_curve(truth = arr_delay, .pred_late) %>% 
+  autoplot()
+```
+
+Similarly, `roc_auc()` estimates the area under the curve: 
+
+```{r roc-auc}
+flights_aug %>% 
+  roc_auc(truth = arr_delay, .pred_late)
+```
+
+Not too bad! We leave it to the reader to test out this workflow [*without*](https://workflows.tidymodels.org/reference/add_formula.html) this recipe. You can use `workflows::add_formula(arr_delay ~ .)` instead of `add_recipe()` (remember to remove the identification variables first!), and see whether our recipe improved our model's ability to predict late arrivals.
+
+```{r eval = FALSE, include = FALSE}
+set.seed(555)
+flights_cens <- flight_data %>% 
+  select(-flight, -time_hour)
+
+flights_cens_split <- initial_split(flights_cens, prop = 3/4)
+flights_cens_train <- training(flights_cens_split)
+flights_cens_test <- testing(flights_cens_split)
+
+flights_wflow_raw <-
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_formula(arr_delay ~ .)
+
+flights_fit_raw <- 
+  flights_wflow_raw %>% 
+  fit(data = flights_cens_train)
+
+flights_preds_raw <- 
+  predict(flights_fit_raw, 
+          flights_cens_test, 
+          type = "prob") %>% 
+  bind_cols(flights_cens_test %>% select(arr_delay)) 
+
+flights_preds_raw %>% 
+  roc_auc(truth = arr_delay, .pred_late)
+```
+
+<div class="question">
+##### Exercise; Getting started with the TAME dataset `r les` {-}
+
+The TAME learning module contains an example dataset from the EPA containing molecular descriptors of pfas and statins. The data was already downloaded above and should be visible in your Global env. as `data_tame`. If not, look up the code chunk above an rerun it.
+
+In this exercise, we are going to build a predictive model to try and answer the following question:
+
+"Can we differentiate between the `PFAS` and `statin` chemical classes, when considering just the raw physicochemical property variables.
+
+The assignment is to build a predictive model, using the Tidymodel framework that was demonstrated in the previous section. In order to achieve this you need at least to consider the following steps
+
+ 1. Inpect the data, using the tools/functions you learned during the previous section of this lesson and the course (e.g. `head()`, `skim::skimr()`, `colnames()`, etc.)
+ 1. Check the datatypes of the variables
+ 1. Create some exploratory graphs
+ 1. Identify the type of modelling approach (engine?) you would like to use
+ 1. Identify the roles for each variable in the dataset
+ 1. Are there any variables that need to be '`feature engineered`'?
+ 1. Build a `tame_mod` R object that contains the model definition (formula) 
+ 1. Split the data in to a `data_tame_train` and a `data_tame_test` fold
+ 1. Define a recipe (`tame_rec`) that includes all the steps you would like to perform as pre-processing. Think about the 'zero-variance' variables here
+ 1. Build a workflow that combines the model (`tame_mod`) and recipe (`tame_rec`)
+ 1. Fit the model using the workflow and the training data
+ 1. Check the model performance using the fitted model and the test data
+
+**TIPS**
+ 
+ 1. Think about what type of classification problem we are dealing with here: regression, logistic regression, binary classification, is the outcome numeric or a factor?
+ 1. Check if there are any missing values, as part of your exploratory analysis
+ 1. Also check the distributions of the variables, do we perhaps need to scale and/or center the variables, before fitting the model? If so why, or if not - why not?
+ 1. Remember `janitor::clean_names()` to tidy the variable names, this makes the variables complient to R convention
+ 1. Maybe rename the `List` variable to something more meaningful?
+
+</div>
+
+<details><summary>Click for the answer</summary>
+
+Exercise Answer:
+
+```{r}
+## Inspect the data
+dim(data_tame)
+data_tame[1:4,1:5]
+
+# or
+data_tame
+unique(data_tame$List)
+colnames(data_tame)
+```
+
+```{r}
+## exploratory graphs
+data_tame_tidy <- data_tame |>
+  rename(class = List) |>
+  mutate(class = as_factor(class)) |>
+  janitor::clean_names()
+names(data_tame_tidy)
+data_tame_tidy |>
+  ggplot(aes(x = molecular_weight, y = opera_octanol_water_distribution_coefficient)) +
+  geom_point(aes(colour = class))
+
+## let's do another
+data_tame_tidy |>
+  ggplot(aes(x = opera_water_solubility , y = opera_negative_log_of_acid_dissociation_constant)) +
+  geom_point(aes(colour = class))
+
+## What can you conclude from these two example graphs?
+
+## missing values
+sum(is.na(data_tame_tidy))
+library(naniar)
+vis_miss(data_tame_tidy)
+## missingnes seems to be in the dtxsid colum
+## check
+sum(is.na(data_tame_tidy$dtxsid))
+# > 47, so not a problem, this variable is an ID, not a predictor. For random forest, we cannot have missing values in predictor variables
+```
+
+```{r}
+## define the engine and model type
+## this problem seems fit for a regression tree approach, e.g. random forest. See: https://parsnip.tidymodels.org/reference/rand_forest.html
+
+tame_mod <- rand_forest() |>
+  set_engine("ranger") |>
+  set_mode("classification")# default engine
+
+tame_mod
+```
+
+```{r}
+## data split
+data_tame_split <- initial_split(data_tame_tidy, prop = 3/4)
+
+# Create data frames for the two sets:
+data_tame_train <- training(data_tame_split)
+data_tame_test  <- testing(data_tame_split)
+
+```
+
+```{r}
+names(data_tame_tidy)
+## define the recipe
+tame_rec <- recipe(class ~ ., data = data_tame_train) |> 
+  update_role(substance_name, casrn, dtxsid, new_role = "ID") %>% 
+  step_normalize(all_numeric_predictors()) |>
+  step_center(all_numeric_predictors()) |>
+  step_zv(all_predictors())
+
+## let's look at the distribution of values accross the predictors
+map_lgl(
+  data_tame_tidy,
+  is.numeric
+) -> ind
+
+map_df(
+  data_tame_tidy[,ind],
+  min
+) -> mins
+
+mins$type = "min"
+
+map_df(
+  data_tame_tidy[,ind],
+  max
+) -> maxes
+
+maxes$type = "max"
+
+bind_rows(mins, maxes) |>
+  pivot_longer(1:10, names_to = "vars", values_to = "values") |>
+  ggplot(aes(
+    x = reorder(as_factor(vars), values), 
+    y = values)) +
+  geom_point(aes(colour = type), position = "jitter") +
+  toolboxr::rotate_axis_labels("x", 90)
+
+## now we do the same for the normalized and centered data, we will use the function `preProcess()` from the {caret} package, which was developed by Max Kuhn (co/lead-developer for {tidymodels})
+library(caret)
+preProcValues <- preProcess(data_tame, method = c("center", "scale"))
+
+data_tame_transformed <- predict(preProcValues, data_tame)
+data_tame_transformed
+
+
+
+## let's put the code above in a function that we can recycle for later use
+plot_min_max <- function(df, ...) { ## ... ellipsis, additional arguments to pivot_longer(), column index or tidy-eval column names (unquoted)
+  map_lgl(df,
+          is.numeric) -> ind
+  
+  map_df(df[, ind],
+         min) -> mins
+  
+  mins$type = "min"
+  
+  map_df(df[, ind],
+         max) -> maxes
+  
+  maxes$type = "max"
+  
+  title <- deparse(substitute(df)) 
+  
+  bind_rows(mins, maxes) |>
+    pivot_longer(..., names_to = "vars", values_to = "values") |>
+    ggplot(aes(x = reorder(as_factor(vars), values),
+               y = values)) +
+    geom_point(aes(colour = type), position = "jitter") +
+    ggtitle(title) +
+    toolboxr::rotate_axis_labels("x", 90) -> p
+  return(p)
+}
+
+plot_min_max(df = data_tame_transformed, 1:10) -> tame_plot_transformed 
+plot_min_max(df = data_tame, 1:10) -> tame_plot
+
+cowplot::plot_grid(
+  tame_plot,
+  tame_plot_transformed
+)
+```
+
+```{r}
+## In terms of feature engineering, there seems to be no need to do this upfront. We could get the SMILES for each compound from a database, and calculate fingerprints. In a later part of this lesson we will revisit this option.
+```
+
+```{r}
+tame_workflow <- workflow() |>
+  add_model(tame_mod) |>
+  add_recipe(tame_rec)
+  
+```
+
+```{r}
+## fitting the model
+tame_fit <- tame_workflow |>
+  fit(data = data_tame_train)
+
+predict(tame_fit, data_tame_test)
+predict(tame_fit, data_tame_test, type = "prob")
+## augment
+tame_aug <- 
+  augment(tame_fit, data_tame_test, .pred_PFAS, .pred_Statins)
+
+## The data look like: 
+tame_aug %>%
+  select(class, .pred_class, .pred_PFAS, .pred_Statins)
+
+
+## Confusion table
+ tame_aug %>%
+  conf_mat(truth = class, estimate = .pred_class)
+ 
+## Accuracy
+ # Model preformace metrics
+class_metrics <- metric_set(accuracy)
+
+## Get preformance metrics
+tame_aug %>%
+ class_metrics(truth = class, estimate = .pred_class)
+
+```
+
+</details>
+
+## Feature importance
+When we use a tree based approach we can also get an idea on which features are most important in the determining the class to which an observation belongs. We will need a different model "deand engine "rpart" to get to the feature importance and the derived decision tree. 
+
+```{r}
+tame_importance_mod <- decision_tree() |>
+  set_engine("rpart") |>
+  set_mode("classification")# default engine
+
+tame_rpart_wf <- tame_workflow |>
+  update_model(tame_importance_mod)
+
+## new fit using the updated workflow
+tame_importance_fit <- tame_rpart_wf |>
+  fit(data = data_tame_train)
+
+## decision tree
+library(rpart.plot)
+tame_importance_fit %>%
+  extract_fit_engine() %>%
+  rpart.plot(roundint = FALSE)
+```
+
+## Case study; QSAR data
+To look at a more realistic case example, that is not so clear cut as the previous (educational) exercise. Let's look at a dataset containing data suitable for Quantitative Structure Activity Relationships (QSAR).
+We downloaded the data in a code chunk above as "qsar_oral_toxicity.csv". The data should be available in a temporary directory on your machine. To see the contents of this directory type
+```{r}
+list.files(here::here(base_folder, "data"), full.names = TRUE, pattern = ".csv")
+```
+
+<div class="question">
+##### Exercise `r les` {-}
+ 
+ 1. Inspect the file `qsar_oral_toxicity.csv`, using the `head` command in the terminal, or on Windows: open the file with Notepad. Are there headers in this file? 
+ 2. Read the file into R, using the `read_csv()` funtion
+ 2. Rename the columns with a string from "f1" to "f1025"
+ 3. Reorder the classification column ("f1025") to be the first column, and rename this column to `class`
+ 4. Look at the dataset
+ 5. Tally the classification column, how many observations of each class do we have? Does this correspond with the meta data on UCL? Do you see a potential problem?
+ 6. Isolate the classification column in a new R object
+ 7. Remove the row with classifications ("f1025") from the data and store the resulting new dataframe as a matrix, using the `as.matrix()` function.
+</div>
+
+<details><summary>Click for the answer</summary>
+Reading the data into R. This file has no headers. The last column in the data contains the labels.
+```{r}
+data_qsar <- read_csv2(
+  here::here(
+    base_folder, 
+    "data",
+    "qsar_oral_toxicity.csv"),
+  col_names = FALSE)
+
+```
+```{r}
+# answer
+names_new <- paste0("f", 1:1025)
+names(data_qsar) <- names_new
+data_qsar <- data_qsar |>
+  dplyr::relocate(f1025, .before = f1) |>
+  rename(class = f1025)
+
+data_qsar |> 
+  group_by(class) |>
+  tally()
+
+classes <- data_qsar$class
+
+#data_qsar_all_numm <- data_qsar |>
+#  select(-class)
+
+## look at the data
+data_qsar
+```
+</details> 
+ 
+<div class="question">
+##### Exercise Exploratory Data Analysis `r les` {-} 
+
+ * Use visualizations and transformations to explore your data in a systematic way
+ * A task that statisticians call exploratory data analysis, or EDA for short. 
+ 
+## EDA is an iterative cycle; you:
+
+ 1) Generate questions about your data.
+ 2) Search for answers by visualising, transforming, and modelling your data.
+ 3) Use what you learn to refine your questions and/or generate new questions.
+
+__You do not need to know statistics for EDA, but it helps if you do!__
+
+## EDA is not a formal process with a strict set of rules
+
+ * EDA is a state of mind. 
+ * Should feel free to investigate every idea that occurs to you. 
+ * Some of these ideas will pan out, and some will be dead ends. 
+ * As your exploration continues, you will zoom in on a few particularly productive areas that you'll eventually write up and communicate to others.
+
+## EDA Steps
+
+To do data analysis, you'll need to deploy all the tools of EDA: visualisation, transformation, and modelling.
+
+When perfoming EDA consider
+
+ 1. What question(s) are you trying to solve (or prove wrong)?
+ 1. Which information do you need and can you come up with a plan to answer the question(s)
+ 1. What kind of data do you have and how do you treat different types?
+ 1. What’s missing from the data and how do you deal with it?
+ 1. Where are the outliers and why should you care about them?
+ 1. How can you add, change or remove features to get more out of your data?
+ 1. Do you need additional data from other sources to relate to the dataset under scrutany?
+ 1. Are underlying statitical assumptions met / how is data distribution looking?
+ 1. What (exploratory) models apply or fit well to the data?
+ 1. What is the undelying (experimental) design?
+ 1. Is there multi-colinearity?
+ 
+## Definitions
+
+ * A __variable__ is a quantity, quality, or property that you can measure. 
+ * A __value__ is the state of a variable when you measure it. The value of a variable may change from measurement to measurement.
+ * An __observation__ is a set of measurements made under similar conditions. An observation will contain several values, each associated with a different variable. I'll sometimes refer to an observation as a data point.
+ * Tables: __Tabular data__ is a set of values, each associated with a variable and an observation. 
+ * Tabular data is _tidy_ if each value is placed in its own "cell", each variable in its own column, and each observation in its own row. 
+ * In real-life, most data isn't tidy, as we've seen in __tidy data__.
+
+## Variation
+
+**Variation** is the tendency of the values of a variable to change from measurement to measurement. 
+
+ * Categorical variables can also vary if you measure across different subjects (e.g. the eye colors of different people), or different times (e.g. the energy levels of an electron at different moments). 
+ 
+ * Every variable has its own pattern of variation, which can reveal interesting information. The best way to understand that pattern is to visualise the distribution of the variable's values.
+
+### Categorical variables
+
+ * A variable is **categorical** if it can only take one of a small set of values.   
+ * In R, categorical variables are usually saved as factors or character vectors. 
+ * To examine the distribution of a categorical variable, use a bar chart:
+
+## Missing values
+In a dataset such as this, I do not expect to encouter any missing values. The fingerprints are calculated from molecules, so it would not make sense to have missing values somewhere. But just to be sure, we can get the sum of missing values like this:
+```{r}
+sum(is.na(data_qsar))
+```
+One less thing to worry about.
+
+## Distributions
+Here we have a distribution of either value `0` or `1` in the data. Let's check if on average the amount of `1`s is the same for positive and negative compounds. We will convert the dataframe to a long format to do more easy calculations and plotting with `{ggplot2}`
+
+Calculate first how many times a certain feature is present in the data.
+
+<details><summary>Click for the answer</summary>
+```{r}
+data_qsar_mtx <- data_qsar |>
+  select(-class) |>
+  as.matrix()
+
+features <- colSums(data_qsar_mtx) |> 
+  enframe()
+
+features |>
+  ggplot(aes(x = value)) +
+  geom_histogram()
+
+
+```
+
+So there are many featurs that are represented in the data at low frequencies and very few features that are respresented in the data very often.
+
+</details>
+
+How do these distributions look if we split for negative and positive compounds
+<details><summary>Click for the answer</summary>
+```{r}
+features_negative <- data_qsar |>
+  dplyr::filter(class == "negative") |>
+  select(-class) |>
+  as.matrix() |>
+  colSums() |>
+  enframe() |>
+  mutate(distro = "negative")
+
+features_positive <- data_qsar |>
+  dplyr::filter(class == "positive") |>
+  select(-class) |>
+  as.matrix() |>
+  colSums() |>
+  enframe() |>
+  mutate(distro = "positive")
+
+features_neg_pos <- dplyr::bind_rows(
+  features_negative,
+  features_positive
+)
+
+features_neg_pos |>
+  ggplot(aes(x = value)) +
+  geom_freqpoly(aes(colour = distro), alpha = 0.8)
+
+```
+</details>
+
+</div>
+
+<div class="question">
+##### Exercise `r les` {-}
+Are there differences in total amount of features between positive and negative compounds?
+
+Be aware, that we have more negtives then positives in our data. Can you think of a way to normalize for this?
+
+**TIPS**
+
+ - Create a frequency distribution of all features and group by compound class (negatives/positives)
+ - Remember that `{ggplot2}` works best with long dataframe format
+ - The `{ggplot2}` geom for frequency distribution is `geom_freqpoly()` 
+
+</div>
+
+<details><summary>Click for the answer</summary>
+```{r}
+data_qsar |>
+  group_by(class) |>
+  tally() -> tally_compounds
+
+features_row_neg <- data_qsar |>
+  dplyr::filter(class == "negative") |>
+  select(-class) |>
+  as.matrix() |>
+  rowSums() |>
+  enframe() |>
+  mutate(distro = "negative")
+
+features_row_pos <- data_qsar |>
+  dplyr::filter(class == "positive") |>
+  select(-class) |>
+  as.matrix() |>
+  rowSums() |>
+  enframe() |>
+  mutate(distro = "positive")
+
+features_row_neg_pos <- dplyr::bind_rows(
+  features_row_neg,
+  features_row_pos
+)
+
+features_row_neg_pos |>
+  ggplot(aes(x = value)) +
+  geom_freqpoly(aes(colour = distro), alpha = 0.8)
+
+features_row_neg_pos |>
+  group_by(distro) |>
+  summarise(mean_feat = mean(value))
+
+```
+
+On average, there is not much difference in number of features per compound, if we compare negatives and positives 
+
+</details>
+
+## Sparsity
+As we saw upon first inspection of the data, the fingerprints contain only 2 values: a `1` and a `0`. One of the disadvantages of describing molecules on the basis of fingerprints is that the resulting matrix is _sparse_. This means that there is a relatively low amount of information content (many zeros and a few ones) in the data. Let's calculate how sparse the matrix is. We will write a function that we can recycle.
+
+```{r, eval=FALSE}
+df = data_qsar
+only_numeric <- select_if(df, is.numeric)
+number_numeric_cells <- (nrow(df) * ncol(df))
+number_zeros <- sum(df == 0) 
+number_ones <- sum(df == 1)
+sparsity = (number_ones / number_zeros)*100
+
+## Let's put this together in a function, we write a test to check for input
+
+get_sparsity_perc <- function(df){
+  
+  only_numeric <- select_if(df, is.numeric)
+  only_numeric_mtx <- only_numeric |> as.matrix()
+  
+  ## check if values of matrix are either 0 or 1
+  ## %in% is functional for `match`
+  if(
+      only_numeric_mtx %in% c(0,1) |> 
+      all() == FALSE){
+    stop("Please check if input values are either ones               and/or zeros")
+   }
+      
+  number_numeric_cells <- (nrow(df) * ncol(df))
+  number_zeros <- sum(df == 0) 
+  number_ones <- sum(df == 1)
+  sparsity = (number_ones / number_zeros)*100
+  return(sparsity)
+
+}
+  
+## test function
+get_sparsity_perc(df = data_qsar)
+
+## check our test
+data_qsar_with_mutation <- data_qsar
+data_qsar_with_mutation[333,445] <- 9.887
+get_sparsity_perc(data_qsar_with_mutation)
+
+## getting unique values
+select_if(data_qsar, is.numeric) |>
+map(unique) |>
+  unique() |> 
+  flatten() |> 
+  unique()
+
+select_if(data_qsar_with_mutation, is.numeric) |>
+map(unique) |>  unique() |> 
+  flatten() |> 
+  unique()
+```
+
+### Heatmap
+Let's look at the fingerprints and see how they differ between negatives and positives. Maybe we can learn something there. Because we have many features and observations, we will take a random sample, to reduce computation time.
+```{r, eval=FALSE, cache = TRUE}
+set.seed(123)
+data_qsar_sample <- data_qsar |>
+  mutate(row_id = 1:nrow(data_qsar)) |>
+  sample_frac(0.005)
+
+data_qsar_mtx_sample <- data_qsar_sample |>
+  select(-class) |>
+  as.matrix() 
+
+colnames(data_qsar_mtx_sample) <- paste0(
+  "c", 
+  1:ncol(data_qsar_mtx_sample)
+  )
+
+
+data_qsar_sample |> 
+  pivot_longer(cols = f1:f1024, values_to = "score", names_to = "feature") |>
+  ggplot(aes(
+    x = reorder(as_factor(feature), score), 
+    y = as_factor(score))) +
+  geom_tile(aes(fill = as_factor(score))) + facet_wrap(class~row_id) +
+  xlab(NULL) +
+  ylab(NULL) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.text.x = element_text(size = 4))
+  
+## to save the graph in a readible size and format
+# ggsave("test.png", height = 20, width = 20, units = "cm", dpi = 300)
+## or if you want to have a vectorgraph
+# ggsave("test.png", height = 20, width = 20, units = "cm", dpi = 300)
+```
+
+## Unsupervised machine learning
+Before we plan to do any kind of classification task on our data, it is good to consider doing an exploratory data analysis to learn more about our data.
+Here we use a principal component analysis and a k-means clustering to learn some patterns.
+
+## Principal Component Analysis
+For code see: https://cmdlinetips.com/2020/06/pca-with-tidymodels-in-r/
+```{r}
+library(tidymodels)
+library(tidyverse)
+#library(gapminder)
+theme_set(theme_bw(16))
+```
+
+
+```{r, eval=FALSE, cache = TRUE}
+pca_recipe <- recipe(~., data = data_qsar)
+pca_trans <- pca_recipe %>%
+  # center the data
+  step_center(all_numeric()) %>%
+  # center the data
+  step_scale(all_numeric()) %>%
+  # pca on all numeric variables
+  step_pca(all_numeric())
+
+pca_estimates <- prep(pca_trans) ## this step takes a bit longer to calculate
+pca_estimates$var_info
+sdev <- pca_estimates$steps[[3]]$res$sdev
+percent_variation <- sdev^2 / sum(sdev^2)
+
+var_df <- data.frame(PC=paste0("PC",1:length(sdev)),
+                     var_explained=percent_variation,
+                     stringsAsFactors = FALSE)
+
+var_df %>%
+  mutate(PC = fct_inorder(PC)) %>%
+  ggplot(aes(x=PC,y=var_explained))+geom_col()
+
+juice(pca_estimates) 
+juice(pca_estimates) %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_point(aes(color = class), alpha = 0.3, size = 2)+
+  labs(title="PCA from tidymodels")
+```
+
+## t-SNE
+T-SNE or [t-distributed stochastic neighbor embedding](https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding) is way to visualize high dimensional data. It is especially used in many of the omics areas. For illustrative puposes, we here show how to run such a model on our QSAR data.
+
+```{r}
+#install.packages("embed")
+library(embed)
+pca_recipe <- recipe(~., data = data_qsar)
+pca_trans <- pca_recipe %>%
+  # center the data
+  step_center(all_numeric()) %>%
+  # center the data
+  step_scale(all_numeric()) %>%
+  # pca on all numeric variables
+  step_umap(all_numeric())
+
+pca_estimates <- prep(pca_trans) ## this step takes a bit longer to calculate
+pca_estimates$var_info
+juice(pca_estimates) 
+juice(pca_estimates) %>%
+  ggplot(aes(UMAP1, UMAP2)) +
+  geom_point(aes(color = class), alpha = 0.3, size = 2)+
+  labs(title="UMAP (t-SNE) from tidymodels")
+
+```
+
+## K-means clustering 
+To show you that we do not need to stick to the Tidymodels framework (but I would recommend it), here we use a dedicated workflow for K-means clustering. An equivalent Tidymodels approach can be found [here](https://www.tidymodels.org/learn/statistics/k-means/)
+
+https://uc-r.github.io/kmeans_clustering
+```{r, eval=FALSE, cache = TRUE}
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra)
+
+set.seed(123)
+data_qsar_k <- data_qsar |>
+  sample_frac(0.1) |>
+  as.data.frame()
+
+row_names <- paste(c(1:nrow(data_qsar_k)), data_qsar_k$class, sep = "_")
+
+rownames(data_qsar_k) <- row_names
+
+data_qsar_k <- data_qsar_k |>
+  select(-class)
+
+df <- scale(data_qsar_k) 
+df
+distance <- get_dist(df)
+
+sum(is.na(df))
+sum(is.na(data_qsar_sample))
+
+## takes a long time to compute
+fviz_dist(
+  distance, 
+  gradient = list(
+    low = "#00AFBB", 
+    mid = "white", 
+    high = "#FC4E07"
+    )
+  )
+
+k2 <- kmeans(df, centers = 2)
+fviz_cluster(k2, data = df)
+
+
+## Multiple clusters
+k3 <- kmeans(df, centers = 3, nstart = 25)
+k4 <- kmeans(df, centers = 4, nstart = 25)
+k5 <- kmeans(df, centers = 5, nstart = 25)
+
+p1 <- fviz_cluster(k2, geom = "point", data = df) + ggtitle("k = 2")
+p2 <- fviz_cluster(k3, geom = "point",  data = df) + ggtitle("k = 3")
+p3 <- fviz_cluster(k4, geom = "point",  data = df) + ggtitle("k = 4")
+p4 <- fviz_cluster(k5, geom = "point",  data = df) + ggtitle("k = 5")
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+
+set.seed(123)
+fviz_nbclust(df, kmeans, method = "wss")
+fviz_nbclust(df, kmeans, method = "silhouette")
+set.seed(123)
+
+```
+
+<div class="question">
+##### Exercise Building an XGBoost model on the QSAR data `r les` {-}
+
+A much used machine learning algorithm is a regression tree as we saw before. A variant that is often used to boost accuracy is the [XGBoost model](https://parsnip.tidymodels.org/reference/details_boost_tree_xgboost.html). In this Exercise we invite you to build such a model and run some predictions and diagnostics on your model. You can follow the steps from the previous demo, where we used the TAME `PFAS/Statins` dataset to build a Random Forest model.
+
+These are the steps you need to take
+
+ 1. Build the appropriate model - [XGBoost](https://parsnip.tidymodels.org/reference/details_boost_tree_xgboost.html)
+ 2. Choose the right mode and engine
+ 3. Build a suitable recipe
+ 4. Generate a random split of the data for a train and a test portion - maybe think about stratification here
+ 5. Build a workflow, including the model and the recipe
+ 6. Fit our model on the training data
+ 7. Test our model on the test dataset
+ 8. Evaluate the model by assessing some performance metrics (accuracy, confusion table)
+
+</div>
+
+<details><summary>Click for the answer</summary>
+Beause we have class imbalance (more negatives then positives) we use a stratification approach
+```{r}
+
+## prepare data splits
+set.seed(123)
+qsar_split <- initial_split(data = data_qsar, 
+                             prop = 0.80, 
+                            strata = class)
+qsar_train <- training(qsar_split)
+qsar_test <- testing(qsar_split)
+```
+
+Let's look at the tally
+https://r4ds.github.io/bookclub-tmwr/class-imbalance.html
+```{r}
+qsar_test |>
+  group_by(class) |>
+  tally()
+
+qsar_train |>
+  group_by(class) |>
+  tally()
+```
+
+## XGBoost
+
+See: https://parsnip.tidymodels.org/reference/details_boost_tree_xgboost.html
+
+```{r}
+
+## prepare model recipe
+xgb_mod <- boost_tree(mtry = 50, trees = 500) %>% 
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+xgb_rec <- recipe(class ~ ., data = qsar_train) |>
+  step_center(all_numeric_predictors()) |>
+  step_scale(all_numeric_predictors()) |> 
+  step_zv(all_predictors())
+
+xgb_wf <- workflow() %>% 
+  add_model(xgb_mod) %>% 
+  add_recipe(xgb_rec)
+
+#prep <- prep(rf_rec)
+#juiced <- juice(prep)
+
+data_qsar <- data_qsar |>
+  mutate(class = as_factor(class))
+
+qsar_test <- qsar_test |>
+  mutate(class = as_factor(class))
+
+qsar_train <- qsar_train |>
+  mutate(class = as_factor(class))
+
+set.seed(1)
+
+## fit model
+xgb_fit <- xgb_wf %>% 
+  fit(data = qsar_train)
+
+## see model metrics
+
+xgb_fit %>% extract_fit_parsnip()
+predict(xgb_fit, qsar_test)
+
+
+## Model eval
+xgb_fit %>% 
+  predict( new_data = qsar_test) %>% 
+  bind_cols(qsar_test["class"]) %>% 
+  accuracy(truth= as.factor(class), .pred_class) 
+
+## confusion matrix
+caret::confusionMatrix(
+  as.factor(qsar_test$class), 
+  predict(xgb_fit, new_data = qsar_test)$.pred_class)
+
+bind_cols(
+    predict(xgb_fit, qsar_test),
+    predict(xgb_fit, qsar_test, type = "prob"),
+    qsar_test[,1]
+  ) -> predictions
+predictions
+```
+ 
+</details> 
+ 
+## Tuning our model
+Above we arbitrarily chose trees = 200 and mtry = 50. These arguments is called hyperparameters. We can more structurally tune our model when we do a grid search for the optimal hyperparameters that yield the best accuracy of our model.
+
+```{r}
+library(tidymodels)  # for the tune package, along with the rest of tidymodels
+
+# Helper packages
+library(rpart.plot)  # for visualizing a decision tree
+library(vip)         # for variable importance plots
+
+```
+</details>
+
+## Model tuning
+Model tuning, means that we will try to find the optimal value for the so-called hyperparameters of the model. These parameters are the paramters that define some setting of the model. For the Random Forest model we saw earlier, we chose an arbitrary value for instance for the `mtry` and `trees` hyperparameters. During the model tuning process, we run muliple models with varying values for the hyperparameters. Each time we evaluate the model to check the performance. The result from this tuning will hopefully yield the best setting for our hyperparameters. Finally, we can run the model one last time with these optimized setting to get the maximum performance. Because model tuning is expensive in terms of computing power, I have run the computation on a Virtual Machine in the Cloud. A machine with 30 cores and 472 Gb RAM memory. A big computer, much bigger than your laptop. The results of these expensive calculations were saved to disk. They can be found online [here](**ADD LINK**).
+To tune the hyperparameters of our XGBoost model we can update (create a new) model using a grid search. This is structural way of defining different values for our hyperparameters. We stick to the [Tidymodels tuning workflow here](https://www.tidymodels.org/start/tuning/).
+
+In stead of defining a value for the hyperparameters, we use the `tune()` function to act as a placeholder for the actual values from the tune grid:
+```{r}
+xgb_mod_tune <- boost_tree(
+  mtry = tune(), 
+  trees = tune(),
+  tree_depth = tune()) %>% 
+  set_engine("xgboost") %>%
+  set_mode("classification")
+```
+
+In order to get a structured collection of possible combinations of our hyperperparameters, we can use the `grid_regular()` function. 
+```{r}
+tree_grid <- grid_regular(
+  trees(),
+  tree_depth(),
+  finalize(mtry(), select(data_qsar , -class)),
+  levels = 3)
+
+```
+
+Armed with this grid we need to create multiple folds of our data to run the models.
+```{r}
+set.seed(234)
+cell_folds <- vfold_cv(qsar_train, v = 3)
+```
+
+We tune our parameters according the grid, over the data-folds we created. This step takes a long time to compute. I ran this on 30 core VM, with 472 Gb RAM. A very large machine, in comparison to a standards laptop, almost 4x more compute power. On that machine it took about 2 hours for the code below to finish. That is why I stored the results on disk, so that you do not need to run this. For safety reasons, I out-commented the code, so that you do not accidentally run it. 
+```{r}
+# set.seed(345)
+
+# tree_grid <- grid_regular(
+#   trees(),
+#   tree_depth(),
+#   finalize(mtry(), select(data_qsar , -class)),
+#   levels = 3)
+ 
+ 
+# set.seed(234)
+# cell_folds <- vfold_cv(qsar_train, v = 3)
+ 
+
+# xgb_wf_tune <- workflow() %>%
+#  add_model(xgb_mod_tune) %>%
+#  add_formula(class ~ .)
+
+# xgb_res <- 
+#  xgb_wf_tune %>% 
+#  tune_grid(
+#    resamples = cell_folds,
+#    grid = tree_grid, control = control_grid(verbose = TRUE))
+    
+
+#xgb_res
+#write_rds(xgb_res, here::here(base_folder, "data", "xgb_res.rds"))
+```
+
+## Read results from disk
+```{r}
+xgb_res <- readr::read_rds(here::here(base_folder, "data", "xgb_res.rds"))
+xgb_res
+
+hyper_p <- xgb_res |>
+  collect_metrics()
+
+xgb_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(trees, mean, color = tree_depth)) +
+#  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0) +
+  facet_wrap(~mtry)
+
+xgb_res %>%
+  show_best("accuracy")
+
+best_boost <- xgb_res %>%
+  select_best("accuracy")
+
+final_wf <- 
+  xgb_wf %>% 
+  finalize_workflow(best_boost)
+final_wf
+
+final_fit <- 
+  final_wf %>%
+  last_fit(qsar_split) 
+
+final_fit$.metrics
+final_fit$.predictions
+
+final_fit$.predictions[[1]] %>% 
+  accuracy(truth= as.factor(class), .pred_class) 
+
+caret::confusionMatrix(
+  final_fit$.predictions[[1]]$.pred_class, final_fit$.predictions[[1]]$class )
+
+```
+
+## Bigger grid
+https://cran.r-project.org/web/packages/doFuture/vignettes/doFuture.html
+```{r, eval=FALSE}
+# # ## we can optimize the big grid tuning using a different engine
+#  xgb_l_tune <- boost_tree(
+#    trees = tune(),
+#    mtry = tune(),
+#    tree_depth = tune()) %>% 
+#    set_engine("xgboost") |>
+#    set_mode("classification")
+# # 
+# # tree_grid <- grid_regular(
+# #   trees(),
+# #   tree_depth(),
+# #   finalize(mtry(), select(data_qsar , -class)),
+# #   levels = 10)
+# # 
+# # 
+# # set.seed(234)
+# # cell_folds <- vfold_cv(qsar_train, v = 10)
+# # 
+# 
+# # 
+# # set.seed(345)
+# 
+# ## read results from disk
+# xgb_l_res <- readr::read_rds("xgb_l_res.rds")
+# 
+#  xgb_wf_l_tune <- workflow() %>%
+#    add_model(xgb_l_tune) %>%
+#    add_formula(class ~ .)
+# 
+# #xgb_l_res <- 
+# #  xgb_wf_l_tune %>% 
+# #  tune_grid(
+# #    resamples = cell_folds,
+# #    grid = tree_grid, control = control_grid(verbose = TRUE))
+#     
+# #xgb_l_res
+# #readr::write_rds(xgb_l_res, "xgb_l_res.rds")
+# 
+# hyper_p <- xgb_l_res |>
+#   collect_metrics()
+# 
+# xgb_l_res %>%
+#   collect_metrics() %>%
+#   mutate(tree_depth = factor(tree_depth)) %>%
+#   ggplot(aes(trees, mean, color = tree_depth)) +
+# #  geom_line(size = 1.5, alpha = 0.6) +
+#   geom_point(size = 2) +
+#   facet_wrap(~ .metric, scales = "free", nrow = 2) +
+#   scale_x_log10(labels = scales::label_number()) +
+#   scale_color_viridis_d(option = "plasma", begin = .9, end = 0) +
+#   facet_wrap(~mtry)
+# 
+# xgb_l_res %>%
+#   show_best("accuracy")
+# 
+# best_boost <- xgb_l_res %>%
+#   select_best("accuracy")
+# 
+# final_wf <- 
+#   xgb_wf %>% 
+#   finalize_workflow(best_boost)
+# final_wf
+# 
+# final_fit <- 
+#   final_wf %>%
+#   last_fit(qsar_split) 
+# 
+# final_fit$.metrics
+# 
+# xgb_fit %>% extract_fit_parsnip()
+# #predict(final_fit, qsar_test)
+# 
+# final_fit$.predictions
+# 
+# final_fit$.predictions[[1]] %>% 
+#   accuracy(truth= as.factor(class), .pred_class) 
+# 
+# caret::confusionMatrix(
+#   final_fit$.predictions[[1]]$.pred_class, final_fit$.predictions[[1]]$class )
+
+```
+
+
