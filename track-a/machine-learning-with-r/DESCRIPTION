@@ -1,13 +1,13 @@
 Package: caait
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: R Package to the EUROTOX 2023 CEC01 - Machine Learning With R
+Version: 0.1.0
+Date: 2023-09-10
 Authors@R: 
     person("Marc", "Teunis", , "marc.teunis@hu.nl", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-3496-6669"))
 Description: Accompanying R package to the workshop materials for A hands-on 
     introduction to applied artificial intelligence in toxicology (CAAIT).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+License: CC BY 4.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3

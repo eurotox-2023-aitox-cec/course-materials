@@ -73,9 +73,7 @@ Welcome to the Continuing Education Course (CEC01) of the 2023 EUROTOX Conferenc
 ## Programme of this workshop
  1. An introduction to R and the tidyverse
  1. An introduction to Tidymodels in R (adapted from the Tidymodels documentation)
- 1. An introduction to Read Accross, based on Compound similarity
- 1. An introduction to Machine Learning approaches for classification of chemicals
-
+ 
 If you are already acquainted with R and a practiced user of the `{tidyverse}` suit of R packages, you can skip activity 1. 
 If you are already familiar with the `{tidymodels}` workflow, you might want to skip or only glimpse over part 2 or take part in the advanced track.
 
@@ -89,8 +87,7 @@ The course material consists of the following:
 - Instruction pages (menu to the left). 
 - Exercises.
 
-To navigate through the different materials, you can use the menu on the left. Part 1 of this workshop is based on the online book [R for Data Science](https://r4ds.had.co.nz/index.html). Part 2 is based on the [Tidymodels documentation](https://www.tidymodels.org/). Part 3 was adapted from [TAME](https://uncsrp.github.io/Data-Analysis-Training-Modules/machine-learning-and-predictive-modeling.html#machine-learning-and-predictive-modeling). Part 4 was created from scratch, but information and code examples were derived from [tensorflow for R documentation](https://tensorflow.rstudio.com/tutorials/quickstart/beginner)
-
+To navigate through the different materials, you can use the menu on the left. Part 1 of this workshop is based on the online book [R for Data Science](https://r4ds.had.co.nz/index.html). Part 2 is based on the [Tidymodels documentation](https://www.tidymodels.org/). 
 ## R and RStudio
 
 During the course, we will use R the Integrated Development Environment  **RStudio**, which you can download and install (**in this order**) for your system using the links below:
@@ -137,7 +134,7 @@ Some materials were adapted from: [TAME](https://uncsrp.github.io/Data-Analysis-
 
 Please also provide attribution to R itself
 ```{r}
-citation()
+citation("caait")
 ```
 
 The `{tidyvese}`

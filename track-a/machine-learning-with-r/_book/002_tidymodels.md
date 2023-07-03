@@ -700,7 +700,7 @@ registerDoMC(cores = max(1, parallelly::availableCores() - 1))
 ```
 
 ```
-## 16.359 sec elapsed
+## 16.681 sec elapsed
 ```
 
 ```r
@@ -732,7 +732,7 @@ tictoc::tic.log(format = TRUE)
 
 ```
 ## [[1]]
-## [1] "16.359 sec elapsed"
+## [1] "16.681 sec elapsed"
 ```
 
 ### Visualize tuning
@@ -802,7 +802,7 @@ This step takes a longer time. I ran this on a 30 core machine with >400 Gb RAM,
 ```
 
 ```
-## 76.531 sec elapsed
+## 78.786 sec elapsed
 ```
 
 ```r
@@ -834,7 +834,7 @@ This step takes a longer time. I ran this on a 30 core machine with >400 Gb RAM,
 
 ```
 ## [[1]]
-## [1] "16.359 sec elapsed"
+## [1] "16.681 sec elapsed"
 ```
 
 ```r
@@ -946,7 +946,7 @@ tictoc::toc(log = TRUE)
 ```
 
 ```
-## 2.537 sec elapsed
+## 2.568 sec elapsed
 ```
 
 ```r
@@ -1064,6 +1064,8 @@ conf_mat(predictions_tbl, truth = outcome, estimate = .pred_class)
 ### Conclusion
 The final model is not too bad, and better then logistic regression. We could rerun all the steps above for different modelling algorithms. Also, remember that for this educational exercise we kept only 100 arbitrary (randomly selected) columns in the data. One could imagine rerunning the model training with all the features. This could well result in better model performance. 
 
+
+## Exercise
 
 <div class="question">
 ##### Exercise; Getting started with the TAME dataset 2 {-}

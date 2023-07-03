@@ -710,6 +710,8 @@ conf_mat(predictions_tbl, truth = outcome, estimate = .pred_class)
 The final model is not too bad, and better then logistic regression. We could rerun all the steps above for different modelling algorithms. Also, remember that for this educational exercise we kept only 100 arbitrary (randomly selected) columns in the data. One could imagine rerunning the model training with all the features. This could well result in better model performance. 
 
 
+## Exercise
+
 <div class="question">
 ##### Exercise; Getting started with the TAME dataset `r les` {-}
 
@@ -958,9 +960,10 @@ tame_importance_fit %>%
 
 ## Case study; QSAR data
 To look at a more realistic case example, that is not so clear cut as the previous (educational) exercise. Let's look at a dataset containing data suitable for Quantitative Structure Activity Relationships (QSAR).
-We downloaded the data in a code chunk above as "qsar_oral_toxicity.csv". The data should be available in a temporary directory on your machine. To see the contents of this directory type
+We downloaded the data in a code chunk above as "qsar_oral_toxicity.csv". The data should be available in the `data-raw` directory on your machine. To see the contents of this directory:
+
 ```{r}
-list.files(here::here("data"), full.names = TRUE, pattern = ".csv")
+list.files(here::here("data-raw"), full.names = TRUE, pattern = ".csv")
 ```
 
 <div class="question">
@@ -983,8 +986,7 @@ data_qsar <- read_csv2(
   here::here(
     "data-raw",
     "qsar_oral_toxicity.csv"),
-  col_names = FALSE) |>
-  relocate()
+  col_names = FALSE) 
 
 ```
 
