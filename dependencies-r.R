@@ -11,5 +11,15 @@ pkg_install(c(
   "bundle",
   "doMC",
   "finetune",
-  "tune"
+  "tune",
+  "BiocManager", # toxicogenomics
+  "DESeq2", # toxicogenomics
+  "ggpubr", # toxicogenomics
+  "corrr", # toxicogenomics
+  "ggfortify", # toxicogenomics
+  "ggcorrplot", # toxicogenomics
+  "ggdendro", # toxicogenomics
+  "data.table", # toxicogenomics
+  "GGally", # toxicogenomics
+  "enrichR"# toxicogenomics
 ))
