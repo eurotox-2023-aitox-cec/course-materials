@@ -30,25 +30,18 @@ header-includes:
 rm(list = ls())
 
 source("Functions.R")
-
-# Check if BiocManager is available and install
-if(!require("BiocManager", quietly = T)){install.packages("BiocManager")}; library(BiocManager)
-
-# Check if BiocManager is available and install
-if(!require("DESeq2", quietly = T)){BiocManager::install("DESeq2", force = TRUE)}; library(DESeq2)
-
-# Check if pacman is available and install
-if(!require("pacman", quietly = T)){install.packages("pacman")}; library(pacman)
-
-# use packman to install CRAN packages
-p_load(tidyverse, ggpubr, corrr, ggfortify, ggcorrplot, ggdendro, data.table, GGally, enrichR)
+library(DESeq2)
+library(tidyverse)
+library(ggpubr)
+library(corrr)
+library(ggfortify)
+library(ggcorrplot)
+library(ggdendro)
+library(data.table)
+library(GGally)
+library(enrichR)
 
 data_path <- file.path(getwd(),"DATA")
-
-plot_path <- file.path(getwd(),"PLOT")
-
-p_loaded()
-
 ```
 
 ## 1. Load countdata and metadata and wrangle
