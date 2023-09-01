@@ -1,0 +1,674 @@
+---
+title: "CEC01 - A hands-on introduction to applied artificial intelligence in toxicology"
+subtitle: "Track-a: Toxicogenomics data and analysis workflows"
+author: "Giulia Callegaro (PhD), Hugo van Kessel (Msc)"
+site: bookdown::bookdown_site
+editor_options: 
+  chunk_output_type: console
+output: 
+    bookdown::gitbook:
+        css: style.css
+        number_sections: false
+        anchor_sections: false
+        split_by: chapter
+        config:
+            sharing:
+                 github: no
+                 facebook: no
+                 twitter: no
+                 all: no
+            toc:
+                collapse: subsection
+                scroll_highlight: yes
+                before: <li class="toc-logo"><a href="./"></a> <h4 class=".paddingtitel "> EUROTOX2023</h2></li>
+header-includes:
+  - \usepackage{fontawesome5}
+---
+
+## 0. Project packages, paths, variables and functions
+```{r error=F, message=FALSE, warning=FALSE}
+rm(list = ls())
+
+source("Functions.R")
+
+# Check if BiocManager is available and install
+if(!require("BiocManager", quietly = T)){install.packages("BiocManager")}; library(BiocManager)
+
+# Check if BiocManager is available and install
+if(!require("DESeq2", quietly = T)){BiocManager::install("DESeq2", force = TRUE)}; library(DESeq2)
+
+# Check if pacman is available and install
+if(!require("pacman", quietly = T)){install.packages("pacman")}; library(pacman)
+
+# use packman to install CRAN packages
+p_load(tidyverse, ggpubr, corrr, ggfortify, ggcorrplot, ggdendro, data.table, GGally, enrichR)
+
+data_path <- file.path(getwd(),"DATA")
+
+plot_path <- file.path(getwd(),"PLOT")
+
+p_loaded()
+
+```
+
+## 1. Load countdata and metadata and wrangle
+
+Inspect the metadata object by clicking it in the environment panel in the top right panel and answer the questions below.
+
+* On which transcriptomics platform were these samples generated?
+* What cell type was used for compound exposure?
+* Which time points are included?
+* Which concentrations were used for the exposure?
+* Which compound was used for the exposure?
+* Which samples do we consider "treatment" and "control"?
+* What are the treatment conditions in the dataset you are going to analyse? hint: treatment conditions are a combination of treatment, dose and time.
+
+Inspect the raw countdata object by clicking it in the enviroment panel in the top right panel and answer the questions below.
+
+* Look at the dimensions of the dataframe (rows and columns). How many probes (rows) were measured?
+
+```{r error=F,warning=F,message=F}
+# We used the fread (fast read) function from the package data.table to quickly load the count and meta data.
+countdata_raw <- fread(input = file.path(data_path, "Counts_per_gene_per_sample_raw_SP0114_PHH_CSA_24hr.csv")) %>% rename("probe_id" = 1)
+metadata <- fread(input = file.path(data_path, "Metadata_PHH_CSA_24hr.txt")) 
+
+# We wrangle the original metadata to generate new sample names and format the metadata into a clear overview. Have a look!
+metadata <- metadata %>% 
+  separate(col = SAMPLE_ID, c("S","time","compound_dose","rep"),remove = F) %>%
+  mutate(treatment = ifelse(test = COMPOUND == "CYCLOSPORINE A", yes = "CYCLOSPORINA", no = "DMSO")) %>% 
+  mutate(concentration = ifelse(test = treatment == "DMSO", yes = 0, no = DOSE)) %>% 
+  
+  mutate(conc_level = if_else(condition = concentration == 10, true = 3, false = concentration)) %>% 
+  mutate(conc_level = if_else(condition = concentration == 2, true = 2, false = conc_level)) %>% 
+  mutate(conc_level = if_else(condition = concentration == 0.5, true = 1, false = conc_level)) %>% 
+  unite("treatment_conc_level", c(treatment,conc_level),remove = F) %>% 
+  unite(col = "sample_name", c(rep,time,treatment,conc_level), remove = F) %>% 
+  select(SAMPLE_ID, sample_name, TIME, rep, time, treatment, treatment_conc_level,concentration, conc_level, CELL_ID)
+
+# We rename our countdata columns which are the sample names with the new sample names 
+countdata_raw <- countdata_raw %>% 
+  pivot_longer(cols = where(is.numeric), names_to = "SAMPLE_ID") %>% 
+  left_join(metadata %>% select(SAMPLE_ID, sample_name), by = "SAMPLE_ID") %>% 
+  select(-SAMPLE_ID) %>% 
+  pivot_wider(names_from = sample_name, values_from = value)
+
+# We remove the old sample name
+metadata = metadata %>% select(-SAMPLE_ID)
+
+# We print the output
+ { print("Raw countdata")
+  cat("\n")
+  countdata_raw %>% str()
+  cat("\n")
+  print("Metadata")
+  cat("\n")
+  metadata %>% str()}
+
+```
+
+## 2. Discard samples (QC): total read count filter
+Question: How many samples are excluded from further analysis based on the sample size (number of total counts in the sample) based on a threshold of 1E6 (1 million) counts. Hint: look at the plot
+```{r error=F,warning=F,message=F}
+# We set the threshold to 1 million
+countdata_threshold <- 1E6
+
+# We take the sum of every individual column and transpose the data frame
+size <- countdata_raw %>%
+  summarise(across(where(is.numeric), sum)) %>%
+  pivot_longer(cols = everything(), names_to = "sample_name", values_to = "sample_size")
+
+# We make a bar plot using ggplot of the sample sizes with the threshold as red horizontal line for quick interpretation
+ggplot(data = size, mapping = aes(x = sample_name, y = sample_size)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1)) +
+  geom_hline(yintercept=countdata_threshold, size = 2, color = "red")+
+  ggtitle("Sample size of raw countdata") + ylab('Sample size')
+
+# We identify the samples with a size (total amount of counts) below or equal to the threshold.
+bad_samples = size %>% filter(sample_size <= countdata_threshold)
+
+# We filter the raw countdata for the bad samples, "fsample" in countdata_raw_fsample means filtered sample
+countdata_raw_fsample = countdata_raw %>% select(-all_of(bad_samples %>% pull(sample_name)))
+
+# We print the output
+  bad_samples %>% str()  
+```
+
+## 3. Discard probes (QC): Relevance filter at the CPM level
+
+
+#### Relevance filter to be applied to normalized data: count per million normalization formula
+```{r }
+# CPM (Counts Per Million) are obtained by dividing counts by the library counts sum and multiplying the results by a million. 
+
+cpm_normalization <- function(x){
+(x/sum(x))*1000000
+}
+metadata <- metadata %>% 
+  unite(col = "mean_id", c(time,treatment,conc_level),sep = "_", remove = FALSE)
+
+countdata_cpm <- data.frame(apply(countdata_raw %>% column_to_rownames(var = "probe_id"), 2, cpm_normalization))
+```
+
+#### Relevance filter: discard all probes that do not reach at least 1 CPM in all 3 replicates across all treatment conditions. 
+
+How many probes are exempted from analysis and what do you think about the quantity compared to the total number of probes? 
+```{r error=F,warning=F,message=F}
+
+low_cpm_probes <- get_low_cpm_probes(countdata = countdata_cpm, metadata = metadata, exclude = c())
+countdata_raw_fsample_fprobe = countdata_raw_fsample %>% filter(!probe_id %in% low_cpm_probes)
+
+  low_cpm_probes %>% str()  
+```
+
+## 4. Sum the raw counts of probes targeting the same gene
+
+* Why are there multiple probes for a single gene?
+* Why do we take the sum of the probes targeting the same gene and not the mean?
+* In the output table we have included only the gene name with the highest probe count of all genes. * Why does this gene have many probes? hint: use external resources such as NCBI gene, GeneCards or UniProt
+*  What are the differences in data frame dimension (rows and columns) before and after summing the probes?
+
+```{r error=F,warning=F,message=F}
+# After filtering for low cpm probes how many probes are left that target multiple genes
+probe_distribution <- countdata_raw_fsample_fprobe %>% 
+  separate(col = probe_id, into = c("gene_symbol", "probe"), sep = "_") %>% 
+  select(gene_symbol, probe) %>% 
+  group_by(gene_symbol) %>% 
+  summarise(x = n()) %>% 
+  count(x) %>% select("Probe count" = x,
+                      "Unique genes" = n)
+
+# We attach the gene symbol for the highest probe count only 
+probe_distribution <- countdata_raw_fsample_fprobe %>% 
+  separate(col = probe_id, into = c("gene_symbol", "probe"), sep = "_") %>% 
+  select(gene_symbol, probe) %>% 
+  group_by(gene_symbol) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  filter(n == 7) %>% 
+  right_join(y = probe_distribution, by = c("n" = "Probe count")) %>% 
+  arrange(n) %>% 
+  select("Probe Count" = n, `Unique genes`, gene_symbol)
+
+# We sum the probes targeting the same gene
+countdata_raw_fsample_fprobe_sumprobe <- countdata_raw_fsample_fprobe %>% 
+  separate(col = probe_id, into = c("gene_symbol", "probe"), sep = "_") %>% 
+  group_by(gene_symbol) %>% 
+  summarise(across(where(is.numeric), sum), .groups = "drop")
+
+# We print the output
+{  print(probe_distribution)
+  cat("\n")
+  print("Dataframe dimensions before probe sum")
+  dim(countdata_raw_fsample_fprobe) %>% str()
+  cat("\n")
+  print("Dimensions after probe sum")
+  dim(countdata_raw_fsample_fprobe_sumprobe) %>% str()
+}
+```
+
+## 5. Countdata CPM normalization
+
+What is the main difference between the dataframes before and after cpm normalization, and can you explain the difference?
+```{r error=F,warning=F,message=F}
+# We use the apply function to apply out cpm_normalization column wise (indicated by the 2) over the countdata_raw_fsample_fprobe_sumprobe object
+countdata_cpm_fprobe_fsample_sumprobe <- data.frame(apply(countdata_raw_fsample_fprobe_sumprobe %>% 
+                                                            column_to_rownames(var = "gene_symbol"), 2, cpm_normalization))
+
+# We print the output
+{  print("Countdata raw")
+  cat("\n")
+  data.frame(countdata_raw_fsample_fprobe_sumprobe %>% column_to_rownames(var = "gene_symbol") %>% str())
+  cat("\n")
+  print("Countdata cpm normalized")
+  cat("\n")
+  countdata_cpm_fprobe_fsample_sumprobe %>% str()
+} 
+```
+
+## 6. Discard and inspect samples (QC): PCA plot and correlation plot
+
+
+### 6.1 Principal component analysis on CPM normalized counts
+
+* Why do we use the CPM normalized countdata and not the raw countdata?
+* What conclusions can you draw from inspection of the PCA plot?
+
+```{r error=F,warning=F,message=F}
+
+# We transpose the prepared count data: sample names from the column names to a single row, and all gene_symbol count data to an individual column
+pca_data <- countdata_cpm_fprobe_fsample_sumprobe %>% 
+  rownames_to_column(var = "gene_symbol") %>% 
+  pivot_longer(-gene_symbol) %>% 
+  pivot_wider(names_from = gene_symbol, values_from = value) %>% 
+  separate(col = "name", into = c("rep","time","treatment","concentration"),remove = F) %>% 
+  unite("treatment_conc_level",c(treatment, concentration))
+
+# We perform pca analysis on the numerical columns (the count data)
+pca_object = prcomp(pca_data %>% select(where(is.numeric)), center = F, scale. = F)
+
+# We print the output
+{  print("First 10 column of the count data")
+  print(pca_data %>% head() %>% select(1:10))
+  cat("\n")
+  autoplot(object = pca_object, data = pca_data, colour = "treatment_conc_level", shape = "rep",  size = 2) + 
+    theme_bw()
+}
+```
+
+Question: After rescaling the x and y axis of the PCA plot what conclusion can you make and does it overlap with your previous conclusion?
+```{r error=F,warning=F,message=F}
+# We rescale the x and y coordinates to -1 to 1 and print the new plot
+autoplot(object = pca_object, data = pca_data, colour = "treatment_conc_level", shape = "rep",  size = 2) + 
+  theme_bw() + coord_cartesian(xlim = c(-1,1), ylim = c(-1,1))
+
+```
+
+### 6.2 Replicate correlation
+
+* Do the replicates (for the same treatment condition) correlate with each other?
+
+```{r error=F,warning=F,message=F}
+# We combine the replicates from the same treatment condition and perform replicate correlation using the ggpairs function
+correlation = countdata_cpm_fprobe_fsample_sumprobe %>%
+  rownames_to_column(var = "gene_symbol") %>%
+  pivot_longer(-gene_symbol,names_to = "sample_name") %>%
+  left_join(metadata, by = "sample_name") %>%
+  select(gene_symbol, sample_name,treatment_conc_level, value) %>% 
+  nest_by(treatment_conc_level) %>% 
+  mutate(data = list(data %>% pivot_wider(names_from = sample_name, values_from = value)),
+         plot = list(ggpairs(data = data %>% select(-gene_symbol),upper = list(continuous = "cor")) + theme_bw())) 
+
+# We print the output
+  for(i in 1:4){
+    print(correlation$treatment_conc_level[[i]])
+    print(correlation$plot[[i]])
+  }
+  
+```
+
+#### General CPM correlation plot
+ 
+ * What can you conclude from this correlation plot? Do the results overlap with your conclusions from the PCA plot? 
+ *  What conlusion can you make using this plot that you could not make using the replicate correlation plot?
+```{r error=F,warning=F,message=F}
+# We correlate all the count data and generate a correlation plot
+plot = ggcorrplot(corr = correlate(countdata_cpm_fprobe_fsample_sumprobe, diagonal = 1, quiet = T) %>% 
+                    column_to_rownames(var = "term"), lab = TRUE, hc.order = T) +
+  scale_fill_gradient2(limit = c(0.8,1), low = "white", high =  "red", mid = "lightblue", midpoint = 0.9)
+
+
+# We print the output
+  plot
+```
+
+## 7.  Differential gene expression analysis based on the negative binomial distribution (DESeq2 package)
+
+Inspect the contrast object to see which comparisons we are going to make.
+
+What does the mean_id_treatment and mean_id_control column represent? hint: take a look at the metadata object
+```{r error=F,warning=F,message=F, echo=F}
+# We generate a contrast table which contains the mean_id comparison we aim the perform
+contrast <- metadata %>% 
+  filter(treatment == "CYCLOSPORINA") %>% 
+  distinct(mean_id) %>% 
+  select("mean_id_treatment" = mean_id) %>% 
+  bind_cols(metadata %>% 
+              filter(treatment == "DMSO") %>%
+              distinct(mean_id) %>% 
+              select("mean_id_control" = mean_id))
+
+# We print the output
+  contrast  
+```
+
+* What can we conclude for each treatment condition?
+* What is a differentially expressed gene?
+* Why do we use padj and log2FC as threshold to determine if a gene is differentially expressed
+* Give a definition of the following columns: baseMean, log2FoldChange, lfcSE, pvalue and padj
+
+```{r error=F,warning=F,message=F, echo=F}
+
+# We set the thresholds to find differential expressed genes
+padj_threshold <- 0.05
+log2FC_threshold <- log2(1.5)
+
+# We loop over the contrast table and select the corresponding data, make the DESeq object, cpm normalize, contrast the treatment with the control and print the ouput
+csa_deseq_result = tibble()
+
+
+  if(nrow(metadata)==ncol(countdata_raw_fsample_fprobe_sumprobe)-1){
+    
+    if(tidy_check(countdata = countdata_raw_fsample_fprobe_sumprobe, metadata = metadata)){
+      deseq_object = DESeqDataSetFromMatrix(countData =  as.data.frame(countdata_raw_fsample_fprobe_sumprobe),
+                                                 colData = metadata %>% mutate(mean_id = as.factor(mean_id)),
+                                                 design = ~ mean_id,
+                                                 tidy = TRUE)
+    }
+    sizeFactors(deseq_object) = colSums(column_to_rownames(countdata_raw_fsample_fprobe_sumprobe, var = "gene_symbol"))/1E6
+    deseq_object = DESeq(deseq_object)
+
+    for(i in 1:nrow(contrast)){
+    temp = data.frame(
+      results(deseq_object, contrast = c("mean_id", contrast$mean_id_treatment[i], contrast$mean_id_control[i]))) %>%
+      rownames_to_column(var = "gene_symbol") %>%
+      mutate(mean_id_treatment = contrast$mean_id_treatment[i], 
+             mean_id_control = contrast$mean_id_control[i]) %>% tibble()
+    
+    
+    up = temp %>% filter(padj < padj_threshold & log2FoldChange >= log2FC_threshold) %>% nrow()
+    down = temp %>% filter(padj < padj_threshold & log2FoldChange <= -log2FC_threshold) %>% nrow()
+    
+    cat(
+      paste("Treatment", contrast$mean_id_treatment[i], "vs. control", contrast$mean_id_control[i]), 
+      "\npadj threshold =", padj_threshold, "log2FC threshold =", log2FC_threshold, 
+      "\nUp regulated DEGs =", up, "\nDown regulated DEGs =", down)
+    cat("\n")
+    cat("\n")
+    
+    csa_deseq_result = csa_deseq_result %>% bind_rows(temp)
+  }
+}
+
+# We print the DESeq result table
+{
+  cat("\n")
+  print("DESeq2 output table")
+  cat("\n")
+  csa_deseq_result %>% str()  
+}
+```
+
+
+### 7.1 Inspect DEG results
+
+Log2FC vs FC, what is the difference? Take a look at the plots. Why do we use the log2FC and not the FC?
+```{r error=F,warning=F,message=F}
+# We plot a density plot using the foldchange values of the treatment conditions
+csa_deseq_result %>% 
+  select(log2FoldChange, mean_id_treatment) %>% 
+  mutate(FoldChange = 2^log2FoldChange) %>% 
+  ggplot() +
+  geom_density(mapping = aes(x = FoldChange)) +
+  facet_wrap(~mean_id_treatment) +
+  theme_bw() + 
+  labs(title = "Density plot of FoldChange values")
+
+# We ZOOM on x = c(0,10) and plot a density plot using the foldchange values of the treatment conditions
+csa_deseq_result %>% 
+  select(log2FoldChange, mean_id_treatment) %>% 
+  mutate(FoldChange = 2^log2FoldChange) %>% 
+  ggplot() +
+  geom_density(mapping = aes(x = FoldChange)) +
+  facet_wrap(~mean_id_treatment) +
+  theme_bw() + 
+  labs(title = "ZOOM on x = c(0,10) Density plot of FoldChange values") +
+  coord_cartesian(xlim = c(0,10)) +
+  scale_x_continuous(breaks = 0:10)
+
+# We plot a density plot using the log2foldchange values of the treatment conditions
+csa_deseq_result %>% 
+  select(log2FoldChange, mean_id_treatment) %>% 
+  mutate(FoldChange = 2^log2FoldChange) %>% 
+  ggplot() +
+  geom_density(mapping = aes(x = log2FoldChange)) +
+  facet_wrap(~mean_id_treatment) +
+  theme_bw() + 
+  labs(title = "Density plot of log2FoldChange values")
+```
+
+#### Number of differentially expressed genes (DEGs)
+
+To inspect DEG count in your samples it is very quick to make a bar plot, but what are the drawbacks of this very simple DEG bar plot?
+```{r error=F,warning=F,message=F}
+padj_threshold <- 0.05
+log2FC_threshold <- 1
+
+csa_deseq_result %>% 
+  group_by(mean_id_treatment,.drop = F) %>% 
+  filter(log2FoldChange > log2FC_threshold & padj < padj_threshold) %>% 
+  count(mean_id_treatment) %>% 
+  ggplot(mapping = aes(x = mean_id_treatment, y = n)) + 
+  geom_bar(stat = "identity") +
+  theme_bw()
+```
+
+#### Volcano plot
+
+Why do we want to inspect a volcano plot? What conclusion can we make for each treatment condition?
+```{r error=F,warning=F,message=F}
+padj_threshold <- 0.05
+log2FC_threshold <- 1
+
+# We assign a status to every gene, either significant or not, based on the thresholds
+red = csa_deseq_result %>% 
+  mutate(class = if_else(condition = abs(log2FoldChange) > log2FC_threshold & padj < padj_threshold,
+                         true = "significant",
+                         false = "not significant")) %>% 
+  drop_na()
+
+# We generate a scatter plot coloring the significant and not significant genes per treatment condition
+plot <- ggplot(data = red, mapping = aes(x = log2FoldChange, y = -log10(padj), color = class)) + 
+  facet_wrap(~mean_id_treatment) +
+  geom_point() +
+  theme_bw()
+
+# We print the output
+  plot
+```
+
+#### MA plot
+
+What conclusions can you make for the red data points in the the MA plot?
+
+What can you conclude for genes with baseMean < 2.5 and log2FC > 2.5? Are these log2FC values biologically significant?
+```{r error=F,warning=F,message=F}
+# Assign baseMean and log2FC thresholds
+baseMean_threshold <- 2.5
+log2FC_threshold <- 2.5
+padj_threshold <- 0.05
+
+# We generate the plot and print the output
+ggplot(data = csa_deseq_result, aes(x = baseMean, y = log2FoldChange)) + 
+  geom_point() +
+  geom_point(data = csa_deseq_result %>% filter(padj < padj_threshold), color = "red") +
+  facet_wrap(~mean_id_treatment) +
+  scale_x_continuous(limits = c(0,10)) +
+  theme_bw() +
+  labs(title = "MA plot with significant genes in red")
+```
+
+
+#### Dose response plot of the 25 most significant genes for each treatment condition
+
+What are the trends in the dose response plots between and within the treatment conditions?
+```{r error=F,warning=F,message=F}
+padj_threshold <- 0.05
+log2FC_threshold <- log2(1.5)
+
+# Top 10 get most sigificant genes from 24h_CYCLOSPORINA_1
+genes_1 = csa_deseq_result %>% filter(mean_id_treatment == "24h_CYCLOSPORINA_1") %>% 
+  arrange(padj) %>% slice(1:10) %>% 
+  separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F) %>% 
+  pull(gene_symbol)
+
+# Top 10 get most sigificant genes from 24h_CYCLOSPORINA_2
+genes_2 = csa_deseq_result %>% filter(mean_id_treatment == "24h_CYCLOSPORINA_2") %>% 
+  arrange(padj) %>% slice(1:10) %>% 
+  separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F) %>% 
+  pull(gene_symbol)
+
+# Top 10 get most sigificant genes from 24h_CYCLOSPORINA_3
+genes_3 = csa_deseq_result %>% filter(mean_id_treatment == "24h_CYCLOSPORINA_3") %>% 
+  arrange(padj) %>% slice(1:10) %>% 
+  separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F) %>% 
+  pull(gene_symbol)
+
+# We generate the plot for 24h_CYCLOSPORINA_1
+p1 <- ggplot(data = csa_deseq_result %>% 
+               filter(gene_symbol %in% genes_1) %>% 
+               separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F), 
+             mapping = aes(x = conc_level, y = log2FoldChange, group = gene_symbol, color = gene_symbol)) + 
+  geom_point() +
+  geom_line() + 
+  theme_bw() +
+  labs(title = "Dose response plot of top 10 most significant genes in 24h_CYCLOSPORINA_1")
+
+# We generate the plot for 24h_CYCLOSPORINA_2
+p2 <- ggplot(data = csa_deseq_result %>% 
+               filter(gene_symbol %in% genes_2) %>% 
+               separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F), 
+             mapping = aes(x = conc_level, y = log2FoldChange, group = gene_symbol, color = gene_symbol)) + 
+  geom_point() +
+  geom_line() + 
+  theme_bw() +
+  labs(title = "Dose response plot of top 10 most significant genes in 24h_CYCLOSPORINA_2")
+
+# We generate the plot for 24h_CYCLOSPORINA_3
+p3 <- ggplot(data = csa_deseq_result %>% 
+               filter(gene_symbol %in% genes_3) %>% 
+               separate(col = "mean_id_treatment", into = c("time","treatment","conc_level"),remove = F), 
+             mapping = aes(x = conc_level, y = log2FoldChange, group = gene_symbol, color = gene_symbol)) + 
+  geom_point() +
+  geom_line() + 
+  theme_bw() +
+  labs(title = "Dose response plot of top 10 most significant genes in 24h_CYCLOSPORINA_3")
+
+# We print the output
+{
+  
+  print(p1)
+  
+  print(p2)
+  
+  print(p3)
+  
+}
+
+```
+
+#### Principal component analysis on DESeq output using the log2FC values
+
+* What can you conclude from the PCA on the log2FC of the treatment conditions? Is this in line with previous findings?
+* In order to perform pca analysis we had to drop rows containing NA, did this influence the results and to what extent? can we still draw a conclusion while we removed data?
+
+```{r error=F,warning=F,message=F}
+
+# We transpose prepare the data frame for pca analysis
+long_result <- csa_deseq_result %>%
+  select(gene_symbol, log2FoldChange,mean_id_treatment) %>%
+  pivot_wider(names_from = mean_id_treatment, values_from = log2FoldChange)
+
+# We print the genes with NA as log2FC result
+print("NA genes dropped from PCA analysis")
+long_result[!!rowSums(is.na(long_result)),]
+
+# We further wrangle the data frame for pca analysis
+pca_data <- long_result %>% 
+  drop_na() %>% 
+  pivot_longer(cols = where(is.numeric)) %>% 
+  pivot_wider(values_from = value, names_from = gene_symbol)
+
+# We perform pca analysis on numerical columns
+pca_object = prcomp(pca_data %>% select(where(is.numeric)), center = F, scale. = F)
+
+# We print the output
+  autoplot(object = pca_object, data = pca_data,  size = 2, colour = "name") + 
+    theme_bw()
+
+```
+
+## 8. Biological interpretation
+
+### 8.1 Overrepresentation analysis (ORA) 
+
+Which cellular processes are activated upon Cyclosporin A exposure in PHH?
+```{r error=F,warning=F,message=F}
+
+# We set the threshold for significant genes
+padj_threshold <- 0.1
+
+# We perform ORA analysis using EnrichR
+ora <- csa_deseq_result %>% 
+  nest_by(mean_id_treatment) %>% 
+  mutate(significant_genes = list(data %>% 
+                                    arrange(padj) %>% 
+                                    slice(1:50) %>% 
+                                    pull(gene_symbol))) %>% 
+  mutate(ora = list(runEnrichR(genes = significant_genes) %>% filter(Adjusted.P.value < 0.05)))
+
+# We print the output
+{
+  print("Top 10 significant ORA for 24h_CSA_1")
+  print(ora %>% 
+    filter(mean_id_treatment == "24h_CYCLOSPORINA_1") %>% 
+    select(mean_id_treatment, ora) %>% 
+    unnest(cols = c(ora)) %>% 
+    select(mean_id_treatment, database, source, Adjusted.P.value, Genes) %>% 
+    arrange(Adjusted.P.value) %>% 
+    ungroup() %>% 
+    slice(1:10))
+  
+  print("Top 10 significant ORA for 24h_CSA_2")
+  print(ora %>% 
+    filter(mean_id_treatment == "24h_CYCLOSPORINA_2") %>% 
+    select(mean_id_treatment, ora) %>% 
+    unnest(cols = c(ora)) %>% 
+    select(mean_id_treatment, database, source, Adjusted.P.value, Genes) %>% 
+    arrange(Adjusted.P.value) %>% 
+    ungroup() %>% 
+    slice(1:10))
+  
+  print("Top 10 significant ORA for 24h_CSA_3")
+  print(ora %>% 
+    filter(mean_id_treatment == "24h_CYCLOSPORINA_3") %>% 
+    select(mean_id_treatment, ora) %>% 
+    unnest(cols = c(ora)) %>% 
+    select(mean_id_treatment, database, source, Adjusted.P.value, Genes) %>% 
+    arrange(Adjusted.P.value) %>% 
+    ungroup() %>% 
+    slice(1:10))
+  
+}
+```
+
+
+
+### 8.2 PHH TXG-MAPr 
+
+The PHH TXG-MAPr transcriptomics data was generated on a different platform than the samples in this workshop. 
+
+Upload the data into to PHH TXG-MAPr tool https://txg-mapr.eu/login/ 
+
+Credentials: 
+
+  * username: eurotox2023
+  * password: txg_mapr01
+ 
+Questions:
+
+* What is the most comparable treatment conditions in the PHH TXG-MAPr tools (compound correlation)?
+* Which modules are most strongly activated by cyclosporine A and what is the module annotation?
+* Do we find similar results with WGCNA as with enrichment analysis (ORA)?
+
+```{r error=F,warning=F,message=F}
+# We select relevant columns for dat upload and rename in the process
+upload = csa_deseq_result %>%  separate(col = mean_id_treatment , into = c("time", "compound", "conc_level"), sep = "_") %>% mutate(time = as.numeric(gsub("h", "", time)) ) %>% mutate(conc_level=as.numeric(conc_level)) %>% 
+  select("experiment" = compound,
+         "gene_id" = gene_symbol,
+         "log2fc" = log2FoldChange,
+         "pvalue" = pvalue,
+         "padj" = padj,
+         "time" = time,
+         "conc" = conc_level)
+
+# We write a simple .txt file for upload
+write.table(x = upload, file = "transciptomics_workshop_upload_file.csv", row.names = F, sep = ",")
+```
+
+
+
+
+
+
