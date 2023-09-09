@@ -12,7 +12,7 @@ This repository contains all the resources for the machine learning project tuto
 - [Installation](#installation)
 - [Project Structure](#project structure)
 - [License](#license)
-- [Contact](#contact)
+
 
 ## Installation
 
@@ -35,7 +35,5 @@ This repository contains all the resources for the machine learning project tuto
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-## Contact
 
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - your_email
 
