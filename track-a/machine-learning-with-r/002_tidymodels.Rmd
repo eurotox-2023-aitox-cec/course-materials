@@ -100,7 +100,7 @@ Data source:
 
 Files `ID.txt`,`class.csv` and `X.csv` in folder `./data-raw/` were obtained from the author of the paper above via personal communication. Original sources files (Matlab scripts and matrix files can be downloaded from the paper's DOI as supplemental data). They are included here for reproducibility reasons in `./data/lesson5/qsar/oral_toxicity_data.rar`
 
-The code below downloads the data to a the `./data-raw` folder and unzips the file in a temporary folder. We read the file into R from that temp file.
+The code below downloads the data to a the `./data-raw` folder and unzips the file in a temporary folder. We can read the file into R from that temp file.
 
 ```{r, download_qsar_data}
 path <- here::here(
@@ -127,23 +127,23 @@ unzip(zipfile = path, exdir = here::here(
  - `{tune}` - for tuning the hyperparameters  
  - `{yardstick}` - for model evaluation and validation
 
-The tidymodels packages allow you to specify, run, fine tune and evaluate models in a consistent way. They provide a workflow for defining and updating modelling approaches and take away the effort of accomodating syntactical differences between different model implementations, so that you can focus on the stuff that is really important. 
+The `{tidymodels}` packages allow you to specify, run, fine tune and evaluate models in a consistent way. They provide a workflow for defining and updating modelling approaches and take away the effort of accomodating syntactical differences between different model implementations, so that you can focus on the stuff that is really important. 
 
 From my experience, the overall workflow is a little hard to get your head around initially, but putting in the effort to really understand it, pays off in the long run. Certainly, I am finding myself less busy with diving into the specific documentation of a model engine, but focussing more on the actual modelling part of the job!   
 
 The steps we need to walk though are:
 
  1. Generate a training and a testing partition of the data. This can be done in several ways: Splitting into a single test and training set or genrating multiple so-called `folds`, that contain multiple (random) splits. It is crucial to understand the data before splitting. For example, you need to be able to provide answer to the question whrther the 'thing' you are trying to predict is present equally in the data, or that (e.g. in a binary classification, there are many more instances of one class, compared to the other) 
- 1. Define a `{recipe}` for which variables and which dataset we would like to use for modelling. The recipe also holds so called `steps` that include any preprocessing we would need for the model we would like to fit. Different models have diffenrent requirements for preprocessing. See: for an overview [the Tidymodels Bookdown](https://www.tmwr.org/pre-proc-table.html)
- 1. A model `specification`, that contains the details on which model to run and which values to set for the hyperparameters of a model. Hyperparameters can be viewed as the dials with which you tune the model. They regulate e.g. overfitting or number of interactions. Tuning a models is an important aspect of modelling and can be done in several ways. A very structured way to find the most optimal hyperparameters is `grid tuning`. The `{tune}` package is facilitating this in the tidymodels suite.   
+ 1. Define a `{recipe}` for which variables and which dataset we would like to use for modelling. The recipe also holds so called `steps` that include any pre-processing we would need for the model we would like to fit. Different models have diffenrent requirements for preprocessing. See: for an overview [the Tidymodels Bookdown](https://www.tmwr.org/pre-proc-table.html)
+ 1. A model `specification`, that contains the details on which model to run and which values to set for the hyper-parameters of a model. Hyper-parameters can be viewed as the dials with which you tune the model. They regulate e.g. overfitting or number of interactions. Tuning a models is an important aspect of modelling and can be done in several ways. A very structured way to find the most optimal hyperparameters is `grid tuning`. The `{tune}` package is facilitating this in the tidymodels suite.   
  1. Definition of the model `metrics` that will help decide how well the fit of the model is for the data 
- 1. A `workflow` where the recipe and the model specification come together. This is the 'wedding planner' of the tidymodels. It can be considered as the plan for the model (without actually running the model) 
- 1. A model `fit`. This is the step where actually run out model, or models, and _fit_ the model to our data. From the fit we can extract the metrics, predictions, statistics and other valuable information that tells us how the model to the data.
+ 1. A `workflow` where the recipe and the model specification come together. This is the _'wedding planner'_ of the `{tidymodels}`. It can be considered as the plan for the model (without actually running the model) 
+ 1. A model `fit`. This is the step where we actually run our model, or models, and _fit_ the model to our data. From the fit we can extract the metrics, predictions, statistics and other valuable information that tells us how the model fits to the data.
  1. Model performance: Getting the model performance metrics such as `specificiy`, `selectivity` and overall performance as `accuracy`, can be obtained from the `fit` object. To evaluate the model, we need to expose the model to our test dataset, or datasets if we use folds.   
- 1. When we use tuning, we rerun the steps of model training and evaluation multiple times to find the most optimal value for the hyperperameters. We then evaluate the best model and arrive at our final model.
+ 1. When we use tuning, we rerun the steps of model training and evaluation multiple times to find the most optimal value for the hyper-parameters. We then evaluate the best model and arrive at our final model.
  1. You can extend this workflow to running more then one model type. This is what we will do in this hands-on workshop.
 
-Here is a visual that may help in understanding the role and nature of the steps, and the different tidymodels packages, in the modelling process.
+Here is a visual that may help in understanding the role and nature of the steps, and the different tidy-models packages, in the modelling process.
 
 ```{r, tidymodels_packages_diagram}
 knitr::include_graphics(
@@ -169,6 +169,7 @@ The code for modelling the `mutagen` data was adapted from https://github.com/si
 ### Clean names mutagen data
 the `clean_names()` from the `{janitor}` package is very handy.
 ```{r}
+names(mutagen_tbl)
 mutagen_tbl <- mutagen_tbl |> janitor::clean_names()
 ## add sample_id for later use (add_role() in recipe)
 mutagen_tbl <- mutagen_tbl |>
@@ -182,22 +183,18 @@ The `mutagen` data was already fitted with a number of models. The Github repo c
 ```{r, load_mutagen_models}
 load(
   here::here(
-    "data",
     "mutagen",
     "data",
     "metrics_wf_set.Rda"))
 load(here::here(
-    "data",
     "mutagen",
     "data",
     "metrics_xgb.Rda"))
 load(here::here(
-    "data",
     "mutagen",
     "data",
     "xgb_final_fit.Rda"))
 load(here::here(
-    "data",
     "mutagen",
     "data",
     "final_fit.Rda"))
@@ -277,7 +274,7 @@ var_data_types |>
         aes(
           colour = var_class,
           shape = var_class), 
-        position = "jitter", alpha = 0.3) +
+        position = "jitter", alpha = 0.6) +
   xlab(NULL) +
   theme(axis.text.x = element_blank(), axis.ticks = element_blank()) +
   scale_x_discrete(limits = unique(var_data_types$var_name))
@@ -286,7 +283,7 @@ var_data_types |>
 This supports our assumption that all variables in the `mutagen` dataset are `numeric`: either `integer` or `double`. Because `factor` is a special integer with class `factor`, we see only 1 red dot. if you look carefully, you will see it to the far left of the plot. This is the only factor. Which variable do you think this is? We do not need to change the datatype of any of our variables for our first model (or any that will follow for that matter). **Usually, wild data like this is not so clean, so please always perform this check, before moving on.** 
 
 ### Subsetting the data for run-time
-The mutagen data contains 1580 columns. This is a lot of features. Because the example here is for educational purposes, I decided to reduce the dataset to 100 randomly selected predictors. In real life, you would perform a more regorous and substantiated feature selection procedure. For example, you could use Ridge Regression or LASSO to select features. Or use a permutation approach in combination with a tree based algorithm. A good example on how to do this is described in [this blog by Julia Silge](https://juliasilge.com/blog/lasso-the-office/) or in [this video by Adrew Couch](https://youtu.be/1AKug0tgux8).
+The mutagen data contains 1580 columns. This is a lot of features. Because the example here is for educational purposes, I decided to reduce the dataset to 100 randomly selected predictors. In real life, you would perform a more rigorous and substantiated feature selection procedure. For example, you could use Ridge Regression or LASSO to select features. Or use a permutation approach in combination with a tree based algorithm. A good example on how to do this is described in [this blog by Julia Silge](https://juliasilge.com/blog/lasso-the-office/) or in [this video by Adrew Couch](https://youtu.be/1AKug0tgux8).
 
 ```{r}
 set.seed(123)
@@ -336,7 +333,14 @@ spec_lr <-
 logistic_reg() %>% 
   set_engine("glm") %>% 
   set_mode("classification")
+
+## Run `?logistic_reg` in the terminal. 
+## Which other model engines could you use
+## also see: 
+
 ```
+
+[To see and search all model engines](https://www.tidymodels.org/find/parsnip/)
 
 ### Define recipe 
 The [`recipe()` function](https://recipes.tidymodels.org/reference/recipe.html) as we used it here has two arguments:
@@ -345,31 +349,57 @@ The [`recipe()` function](https://recipes.tidymodels.org/reference/recipe.html) 
 
 + The **data**. A recipe is associated with the data set used to create the model. This will typically be the _training_ set, so `data = mutagen_train` here. 
 
-A recipe contains the specification for which dataset we will use for modelling and all the preprocessing steps we need to perform, before the data is ready for modelling. When we look at [this table](https://www.tmwr.org/pre-proc-table.html), we can see that for 'logistic regression' (the first model we will try), a few pre-processing steps seem mandatory:
+A recipe contains the specification for which variables and which dataset we will use for modelling and all the pre-processing steps we need to perform, before the data is ready for modelling. When we look at [this table](https://www.tmwr.org/pre-proc-table.html), we can see that for 'logistic regression' (the first model we will try), a few pre-processing steps seem mandatory/wise:
 
- 1.dummy (`step_dummy()`) 	
- 1.zv (`step_nzv()`) 	
+ 1. dummy (`step_dummy()`) 	
+ 1. Near Zero Variance (`step_nzv()`) see [Tidymodels documentation](https://recipes.tidymodels.org/reference/step_nzv.html)	
  1. impute (`step_impute()`) 	
  1. decorrelate (`step_corr()`) 
 
 Technically, we would need to do all the pre-processing of the data, before moving on. Here we can skip a few steps though: There are no categorical variables in the data, so we do not need to convert any to dummy variables. Secondly, there are no missing values in the data (did we check that? - How would you do a quick check, whether that is true?). 
-Thirdly, removing zero variance (zv) variables is what we will do in our first recipe. Let's first see how that recipe works for this data and model. We can revisit or improve the recipe later and add a step, using the `add_step`. 
-
-We can also add a role for a specific variable. For instance an id variable. Here we will create an additional column called `sample_id`, and assign it an `id` role. This step of adding roles to a recipe is optional; the purpose of using it here is that those two variables can be retained in the data but not included in the model. This can be convenient when, after the model is fit, we want to investigate some poorly predicted value. These ID columns will be available and can be used to try to understand what went wrong.
-
-Let's put the recipe together. 
 
 ```{r, any_na_in_mutagen_data, include=FALSE}
 ## assert missing data -> should be zero
 sum(is.na(mutagen_tbl_selected))
 ```
 
+Thirdly, removing near zero variance (`step_nzv`) variables is what we will do in our first recipe. Let's first see how that recipe works for this data and model. We can revisit or improve the recipe later and add a step, using the `add_step`. 
+
+This step diagnoses predictors that have one unique value (i.e. are zero variance predictors) or predictors that have both of the following characteristics:
+
+ 1. They have very few unique values relative to the number of samples and
+ 2. The ratio of the frequency of the most common value to the frequency of the second most common value is large.
+
+Example
+```{r}
+second_nzv_rule <- c(rep(1, times = 10000), 2,3,4, rep(5, times = 5)) -> x
+x |>
+  enframe() |>
+  group_by(value) |>
+  tally() |>
+  ggplot(aes(x = value, y = n)) +
+  geom_point() +
+  xlab("value in x") +
+  ylab("frequency of value")
+tabulate(second_nzv_rule, nbins = length(unique(second_nzv_rule))) |>
+  sort(decreasing = TRUE) -> x
+x
+ratio = x[1]/x[2]
+ratio
+## we could consider this ratio between the frequency of the most common value and the second most frequent value in x quite large, so removal of this variable seems a good idea, according the rules of nzv
+```
+
+We can also add a role for a specific variable. For instance an id variable. Here we will create an additional column called `sample_id`, and assign it an `id` role. This step of adding roles to a recipe is optional; the purpose of using it here is that those variables can be retained in the data but not included in the model. This can be convenient when, after the model is fit, we want to investigate some poorly predicted values or somthing else. The `sample_id` columns will be available and can be used to try to understand what went wrong.
+
+Let's put the recipe together. 
+
 ```{r, mutagen_recipe_logistic_regression}
 recipe_lr <-
   recipe(outcome ~ ., mutagen_train) %>%
   add_role(sample_id, new_role = "id") |>
-  step_zv(all_predictors()) |>
+  step_nzv(all_predictors()) |>
   step_corr(all_predictors())
+recipe_lr
 ```
 
 ### Model performance metrics 
@@ -491,6 +521,10 @@ mutagen_folds
 ### Running the initial tuning 
 Initially we will use a grid tuning where we are just setting the dimensions of the grid (`grid = 20`). The `workflow` and cross validation `folds` are the input for this grid tuning. This step takes a bit longer.
 
+> tictoc::tic.log(format = TRUE)
+[[1]]
+[1] "47.948 sec elapsed"
+
 ```{r, inital_tune}
 registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
 
@@ -543,22 +577,22 @@ rf_grid
 
 ### Running another tuning
 This step takes a longer time. I ran this on a 30 core machine with >400 Gb RAM, which took about 8 hours to complete. In stead of running we load the resulting R-object from disk. I commented the code out, so that it cannot be run accidentally.
-```{r, final_tune}
- registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
- tictoc::tic()
- set.seed(456)
- regular_res <- tune_grid(
-   rf_tune_wf,
-   resamples = mutagen_folds,
-   grid = rf_grid
- )
- tictoc::toc()
+```{r, final_tune, eval=FALSE}
+# registerDoMC(cores = max(1, parallelly::availableCores() - 1))  
+# tictoc::tic()
+# set.seed(456)
+# regular_res <- tune_grid(
+#   rf_tune_wf,
+#   resamples = mutagen_folds,
+#   grid = rf_grid
+# )
+# tictoc::toc()
  
- regular_res
+# regular_res
  
  ## get timings
- tictoc::tic.log(format = TRUE)
- write_rds(regular_res, here::here("data", "regular_res.rds"))
+# tictoc::tic.log(format = TRUE)
+# write_rds(regular_res, here::here("data", "regular_res.rds"))
 ```
 
 ```{r, final_tuned}
