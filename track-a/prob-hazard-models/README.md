@@ -9,10 +9,10 @@ This is the folder for the talk:
 Probabilistic Hazard Models Trained On Harmonized Chemical Relationship Data
 
 First run in Terminal
- 1. pip install biobricks
- 2. biobricks configure
- 3. biobricks install chemharmony
- 4. biobricks install chembl
+ 1. `pip install biobricks`
+ 2. `biobricks configure`
+ 3. `biobricks install chemharmony`
+ 4. `biobricks install chembl`
 
 In R
 remotes::install_github("biobricks-ai/biobricks-r")
