@@ -6,7 +6,18 @@ This is the folder for the talk:
 [slideshow](https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fdocs.google.com%2Fpresentation%2Fd%2F1bqsd7jRKTN-vz5SIbOULhUcVSZ0D8qhP9e75PXDn0z4%2Fedit%3Fusp%3Dsharing&data=05%7C01%7Cmarc.teunis%40hu.nl%7Cb2f5acd3474f494a739808dbb1f1603b%7C989329099a5a4d18ace47236b5b5e11d%7C0%7C0%7C638299422493406110%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C3000%7C%7C%7C&sdata=muJLSbKArzHzS7laksMDMFeWoSLYqdO8UuWvjPG%2FjjI%3D&reserved=0)
 
 ### Hands-on demo
-Run these .R files to run the demo:
+# Probabilistic Hazard Models Trained On Harmonized Chemical Relationship Data
+
+# First run in Terminal
+# 1. pip install biobricks
+# 2. biobricks configure
+# 3. biobricks install chemharmony
+# 4. biobricks install chembl
+
+In R
+# remotes::install_github("biobricks-ai/biobricks-r")
+
+Run these .R files in R to run the demo:
 
  1. 1_build_data.R
  2. 2_build_model.R
