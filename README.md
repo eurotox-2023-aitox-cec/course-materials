@@ -24,7 +24,7 @@ Track A is focused on R, track B on Python
 The plenary key note will be delivered by Prof. dr. Thomas Hartung. Please find the abstract of his talk [here:](https://www.eurotox2023.com/programme/) 
 
 ### Plenary; Good coding practices, publishing your work and code-collaboration 
-The course will be closed by a hands-on demo and instruction delivered by Dr. Alyanne De Haan. See for details [this link]()
+The course will be closed by a hands-on demo and instruction delivered by Dr. Alyanne De Haan. 
 
 ### Track-a; Machine Learning with R
 When working from a local machine or a virgin RStudio Server: 
