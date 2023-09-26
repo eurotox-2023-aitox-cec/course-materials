@@ -2,7 +2,7 @@
 
 **Alyanne de Haan**, Marie Corradi, Marc Teunis (Utrecht University of Applied Sciences, NL)
 
-Publishing your work and code -collaboration // hands-on 4 – plenary end)
+Publishing your work and code - collaboration // hands-on 4 – plenary end
 
 ## template folders
 
