@@ -8,6 +8,10 @@ Publishing your work and code - collaboration // hands-on 4 – plenary end
 
 Two .zip files are provided in this repo, containing template folder structures for (reproducible) science projects. Feel free to use and change until they meet your requirements!
 
+The backup .zip folder contains two separate .Rmd templates that knit to a Word document and a HTML document, in case my risky knitting-live-to-pdf-demo failed. You can use them to knit your documents if you like, but they were generated using the stevetemplates R package, so I would recommend using that instead.
+see: https://github.com/svmiller/stevetemplates
+
+Also, consider the rticles package: https://github.com/rstudio/rticles
 
 ## powerpoint presentation
 The powerpoint presentation of the talk at Eurotox2023. 
