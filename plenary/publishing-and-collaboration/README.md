@@ -14,12 +14,12 @@ The powerpoint presentation of the talk at Eurotox2023.
 
 ## using this material
 
-This work can be used for non-commercial purposes, please cite us if you do!
-
-Shield: [![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
-
 This work is licensed under a
 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
+
+So, this work can be used for non-commercial purposes, please cite us if you do!
+
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
 [![CC BY-NC-SA 4.0][cc-by-nc-sa-image]][cc-by-nc-sa]
 
